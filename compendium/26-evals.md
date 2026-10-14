@@ -202,7 +202,7 @@ A score also describes a model-harness pair ([§19](19-harness-engineering.md)),
 
 ### The eval-driven development debate
 
-**Eval-driven development** borrows test-driven development's order: write evals first, then build until they pass. Anthropic's post recommends it ("build evals to define planned capabilities before agents can fulfill them"). Xia et al., "Evaluation-Driven Development and Operations of LLM Agents" (arXiv 2411.13768, Nov 2024, revised Nov 2025), goes further, deriving a process model and reference architecture (EDDOps) from a multivocal literature review in which evaluation is "a continuous, governing function rather than a terminal checkpoint" spanning offline and online evaluation.
+**Eval-driven development** borrows test-driven development's order: write evals first, then build until they pass. Anthropic's post recommends it ("build evals to define planned capabilities before agents can fulfill them"). Xia et al., "Evaluation-Driven Development and Operations of LLM Agents" (arXiv 2411.13768, Nov 2024, revised Nov 2025), goes further. From a multivocal literature review (one that mixes academic papers with industry sources), it derives a process model and reference architecture, EDDOps, in which evaluation is "a continuous, governing function rather than a terminal checkpoint" spanning offline and online evaluation.
 
 Husain and Shankar answer "Should I practice eval-driven development?" with "Generally no," because "LLMs have infinite surface area for potential failures. You can't anticipate what will break." Up-front evals measure imagined failures, and criteria drift says you can't fully specify them before seeing outputs. Their exception: a constraint you know exactly, like "never mention competitors."
 
@@ -226,7 +226,7 @@ This is the dbt pattern: tests run on every build, each set to `warn` or `error`
 
 ### Failure modes
 
-- **Generic metrics** no observed failure motivated, which "create false confidence" (Husain and Shankar).
+- **Generic metrics** that no observed failure motivated, which "create false confidence" (Husain and Shankar).
 - **Uncalibrated judges,** or one judge grading everything.
 - **Broken tasks** that punish correct behavior. METR found tasks asking agents to reach a score threshold but crediting only scores above it.
 - **Leaky ground truth** in the sandbox, repository history or prompt.

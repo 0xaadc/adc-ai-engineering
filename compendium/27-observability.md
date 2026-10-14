@@ -24,7 +24,7 @@ Data engineers know this gap as the difference between "the job succeeded" and "
 A **trace** is the complete record of one request or task, from the user's input to the final response, including every model call, tool call and retrieval along the way (Husain and Shankar's definition). A **span** is one timed operation inside a trace. Each span carries a trace ID, its own span ID, its parent's span ID, a name, start and end times, a status and **attributes** (key-value pairs). Parent links make the spans a tree. Traces from one multi-turn conversation are grouped by a conversation or session ID. Vendors use these terms slightly differently, so check what a tool means by "trace" before comparing.
 
 ```text
-trace 4bf92f…  "Where is order 1234?"                                     2.41 s   $0.0143
+trace 4bf92f…  "Where is order 1234?"                                     2.41 s   $0.0101
 └─ invoke_agent support                                                   2.41 s
    ├─ chat claude-sonnet-5-5      in 8,900 (8,000 cached) / out 250 tok   0.92 s   stop=tool_use
    ├─ execute_tool lookup_order   {"order_id": "1234"} → {"status": …}    0.08 s
@@ -55,7 +55,7 @@ It's the bronze-layer habit from a medallion architecture: keep the raw record b
 
 ### The OpenTelemetry GenAI semantic conventions
 
-**OpenTelemetry (OTel)** is the open standard for telemetry. It provides SDKs that create traces, metrics and logs; a wire protocol, **OTLP**; and the **Collector**, a service that receives, processes and forwards telemetry. **Semantic conventions** are its agreed names for span names and attributes. Without them, every instrumentation library invents its own names (one says `prompt_tokens`, another `input_tokens`), and every backend has to map every library: N×M integrations. With them, each library emits one schema and each backend reads it: N+M (P11).
+**OpenTelemetry (OTel)** is the open standard for telemetry. It provides SDKs that create traces, metrics and logs; a wire protocol, **OTLP**; and the **Collector**, a service that receives, processes and forwards telemetry. **Semantic conventions** are its agreed names for spans, attributes and metrics. Without them, every instrumentation library invents its own names (one says `prompt_tokens`, another `input_tokens`), and every backend has to map every library: N×M integrations. With them, each library emits one schema and each backend reads it: N+M (P11).
 
 The GenAI conventions standardize:
 
