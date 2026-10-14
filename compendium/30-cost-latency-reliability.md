@@ -141,11 +141,11 @@ Three caches are often confused:
 | Exact response cache | Hash of the full request | The whole call | Stale or personalized answers replayed |
 | Semantic cache | Embedding similarity above a threshold | The whole call | Wrong answer to a different question |
 
-A semantic cache embeds each query ([§08](08-embeddings-and-search.md)), finds the nearest cached one and returns its answer if similarity clears a threshold. Huyen calls its value "more dubious because many of its components are prone to failure." The risks follow from the mechanism. "Cancel my order" and "don't cancel my order" embed close together. A personalized answer can reach another user, which is a privacy incident. Answers go stale, and an attacker can seed a poisoned entry (P9). Cloudflare's AI Gateway caches only identical requests (as of Sep 2026), while Azure API Management offers semantic caching. If you use one, scope keys by tenant, cache only non-personalized, non-agentic requests, keep TTLs short and measure the false-hit rate (P4).
+A semantic cache embeds each query ([§08](08-embeddings-and-search.md)) and returns the nearest cached query's answer if similarity clears a threshold. Huyen calls its value "more dubious because many of its components are prone to failure." "Cancel my order" and "don't cancel my order" embed close together; a personalized answer can reach another user, a privacy incident; answers go stale; an attacker can seed a poisoned entry (P9). Cloudflare's AI Gateway caches only identical requests (as of Sep 2026), while Azure API Management offers semantic caching. If you use one, scope keys by tenant, cache only non-personalized requests, keep TTLs short and measure false hits (P4).
 
 ### The data engineering analogy: warehouse sizing as a cost dial
 
-Snowflake doubles the credit rate with each warehouse size and bills per second, so a query that parallelizes well costs about the same on a bigger warehouse and finishes sooner, while, in Snowflake's words, "Larger is not necessarily faster for small, basic queries." Model tiers behave the same way. A larger model costs more per token but may finish in fewer turns, so cost per completed task can fall, while a simple classifier gains nothing from a frontier model. Cache TTL plays the role of auto-suspend, and spend caps are resource monitors. The habit carries over: size per workload and measure cost per finished job.
+Snowflake doubles the credit rate with each warehouse size and bills per second, so a query that parallelizes well costs about the same on a bigger warehouse and finishes sooner, yet "Larger is not necessarily faster for small, basic queries." Model tiers behave the same way: a larger model costs more per token but may finish in fewer turns, while a simple classifier gains nothing from a frontier model. Cache TTL plays the role of auto-suspend, and spend caps are resource monitors. Size per workload and measure cost per finished job.
 
 ### Latency: actual vs perceived
 
@@ -162,10 +162,10 @@ parallel:  [LLM]→[tool A | tool B | tool C]→[LLM]                  3 hops
 ```
 
   Claude can emit several `tool_use` blocks in one turn; run them concurrently and return all results in one message ([§10](10-tool-use.md)). Subagent fan-out does the same at a larger scale ([§13](13-multi-agent.md)).
-- **Speculative execution** starts work the model will probably ask for: retrieve documents for the question while the model plans, or prefetch the read-only tool calls it usually makes first. **Hedged requests** (Dean and Barroso, "The Tail at Scale", 2013) send a backup request only when the first is running slow. With LLMs, every hedge duplicates the token bill, and it is safe only for side-effect-free calls.
-- **Regional endpoints** matter mostly for data residency, since network round trips are small next to generation, except in voice ([§25](25-voice-agents.md)). On Anthropic, `inference_geo: "us"` keeps inference in the US at 1.1× token prices and shares one rate-limit pool with global routing.
+- **Speculative execution** starts work the model will probably ask for, such as retrieving documents while the model plans. **Hedged requests** (Dean and Barroso, "The Tail at Scale", 2013) send a backup request only when the first is running slow; with LLMs each hedge duplicates the token bill, and only side-effect-free calls are safe to hedge.
+- **Regional endpoints** matter mostly for data residency, since network round trips are small next to generation, except in voice ([§25](25-voice-agents.md)). On Anthropic, `inference_geo: "us"` keeps inference in the US at 1.1× token prices.
 
-Budget for p95 and p99, not the mean. Provider queueing under load adds latency no prompt change can fix.
+Budget for p95 and p99, not the mean: provider queueing under load adds latency no prompt change can fix.
 
 ### Reliability
 

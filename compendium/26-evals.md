@@ -53,7 +53,7 @@ This works because an LLM's failure space is unbounded and specific to your prom
 
 ### Graders: code, model and human
 
-**Code-based graders** check what a program can decide: normalized match, regex, schema validation ([§06](06-structured-outputs.md)), unit tests, executing a query, inspecting the environment's end state, or checking which tools were called with which arguments. They're fast, cheap and reproducible, but rigid. Anthropic reports that Opus 4.5 first scored 42% on CORE-Bench, partly because a grader rejected "96.12" when it expected "96.124991…"; after fixing grading bugs and ambiguous tasks and loosening the scaffold, it scored 95%.
+**Code-based graders** check what a program can decide: normalized match, regex, schema validation ([§06](06-structured-outputs.md)), unit tests, query results, the environment's end state, or which tools were called with which arguments. They're fast, cheap and reproducible, but rigid: Opus 4.5 first scored 42% on CORE-Bench partly because a grader rejected "96.12" when it expected "96.124991…", and after Anthropic fixed grading bugs and ambiguous tasks and loosened the scaffold, it scored 95%.
 
 **LLM-as-judge** is a second model call that reads the input, the output and a rubric and returns a verdict. Forms include rubric scoring, natural-language assertions ("the reply states the return window"), **pairwise comparison** (is A or B better?) and comparison to a reference answer. The judge is sampled too (P4), and Zheng et al. (2023) documented three biases:
 
@@ -139,7 +139,7 @@ Evan Miller's "Adding Error Bars to Evals" (Anthropic, Nov 2024) treats eval que
 - **Compare paired.** Run both variants on the same cases and analyze per-case differences. Frontier models' per-question scores correlate at 0.3–0.7, so pairing removes much of the noise.
 - **Plan the sample size.** **Power analysis** gives the n needed to detect the smallest change you'd act on.
 
-The judge and the environment add variance too. Run the judge twice on the same output, and remember that trials failing for one shared infrastructure reason "are not independent" (Anthropic). A 2-point gain on 50 cases is noise.
+The judge and the environment add variance too: run the judge twice on one output, and note that trials failing for a shared infrastructure reason "are not independent" (Anthropic). A 2-point gain on 50 cases is noise.
 
 ### Offline and online evals
 
@@ -195,10 +195,10 @@ Same 32 trials, and the headline is "100%" or "25%" depending on the metric, so 
 Public benchmarks (SWE-bench Verified, Terminal-Bench, τ²-bench, BrowseComp) compare models on shared tasks, but fail as decision tools in three ways:
 
 - **Saturation.** "An eval at 100% tracks regressions but provides no signal for improvement." In January 2026 Anthropic described frontier models as "nearing saturation at >80%" on SWE-bench Verified, where large capability gains appear as small score changes.
-- **Contamination.** Benchmark questions leak into training data. Zhang et al.'s GSM1k (May 2024), a fresh mirror of the GSM8k math set, found drops of up to 8% for some model families, correlated with how readily a model reproduced GSM8k examples. Frontier models showed little overfitting.
+- **Contamination.** Benchmark questions leak into training data. On GSM1k (Zhang et al., May 2024), a fresh mirror of the GSM8k math set, some model families dropped up to 8%, in line with how readily they reproduced GSM8k examples; frontier models showed little overfitting.
 - **Goodhart's law** ([§12](12-agentic-design-patterns.md)): a measure that becomes a target stops measuring. "The Leaderboard Illusion" (Singh et al., Apr 2025) found undisclosed private testing let some providers try many variants on Chatbot Arena and publish the best, including 27 private Meta variants before Llama 4.
 
-A benchmark score also describes a model-harness pair ([§19](19-harness-engineering.md)), not your harness or your users. Shortlist with benchmarks; decide with your own evals. Goodhart applies to those too: tune against one dev set long enough and the prompt learns the set.
+A score also describes a model-harness pair ([§19](19-harness-engineering.md)), not your harness or users. Shortlist with benchmarks and decide with your own evals, remembering that Goodhart applies to them too.
 
 ### The eval-driven development debate
 
