@@ -10,12 +10,12 @@ You have prompts ([§05](05-api-and-prompting.md)), structured outputs ([§06](0
 
 On a rented model the prompt is your main knob, and its limits follow from the principles:
 
-- **Instructions compete for attention (P3).** A 4,000-token prompt with twenty rules still breaks rule 17 a few percent of the time.
-- **Context is paid for on every call (P10).** Few-shot examples cost tokens on every request, forever. A change to the weights is paid for once.
-- **Some behavior is easier to show or check than to describe.** You can't write your house style or an expert's judgment as rules, but you can show 2,000 examples, rank pairs, or write a program that checks the answer.
-- **A frontier model may be overkill.** A narrow, high-volume task doesn't need its breadth, and you pay for that breadth in money and latency.
+- **Instructions compete for attention (P3).** A prompt with twenty rules still breaks rule 17 a few percent of the time.
+- **Context is paid for on every call (P10).** Few-shot examples cost tokens on every request; a weight change is paid for once.
+- **Some behavior is easier to show or check than to describe.** You can't write an expert's judgment as rules, but you can show 2,000 examples, rank pairs, or write a program that checks the answer.
+- **A frontier model may be overkill** for a narrow, high-volume task, and you pay for its breadth in money and latency.
 
-Adapting the model either finds a better context automatically or moves behavior from the context into the weights. Weights have costs of their own. They change slowly, you can't read or diff them like a prompt, they are tied to a base model that will be retired, and training can erase abilities you relied on. So the discipline is to climb a ladder, cheapest rung first, and measure every step.
+Adapting the model either finds a better context automatically or moves behavior into the weights. Weights change slowly, can't be read or diffed like a prompt, are tied to a base model that will be retired, and can lose abilities you relied on. So climb a ladder, cheapest rung first, and measure every step.
 
 ## How it works (under the hood)
 
@@ -38,19 +38,11 @@ Rungs 1–3 are earlier sections ([§05](05-api-and-prompting.md), [§09](09-rag
 
 - A **signature** declares a step's inputs and outputs, such as `"question, context -> answer"`, in place of a hand-written prompt.
 - A **module** turns a signature into model calls. `dspy.Predict` answers directly, `dspy.ChainOfThought` reasons first, and `dspy.ReAct` runs a tool loop. Modules compose into programs.
-- An **optimizer** (formerly "teleprompter") rewrites a program's prompts to maximize a metric on a training set:
-  - `BootstrapFewShot` runs the program and keeps the traces that pass the metric as few-shot demonstrations.
-  - `MIPROv2` proposes instructions grounded in your data and code, then runs a Bayesian search over instruction and demonstration combinations.
-  - `BootstrapFinetune` distills the program into weight updates. Combining prompt and weight optimization beat either alone in the authors' experiments ("BetterTogether", Jul 2024).
+- An **optimizer** (formerly "teleprompter") rewrites a program's prompts to maximize a metric on a training set. `BootstrapFewShot` runs the program and keeps traces that pass the metric as few-shot demonstrations. `MIPROv2` proposes instructions grounded in your data and code, then runs a Bayesian search over instruction and demonstration combinations. `BootstrapFinetune` distills the program into weights; combining prompt and weight optimization beat either alone in the authors' "BetterTogether" experiments (Jul 2024).
 
-**GEPA** (Agrawal et al., "Reflective Prompt Evolution Can Outperform Reinforcement Learning", Jul 25, 2025; revised Feb 2026; shipped as `dspy.GEPA`) replaces blind search with reflection:
+**GEPA** (Agrawal et al., "Reflective Prompt Evolution Can Outperform Reinforcement Learning", Jul 25, 2025, revised Feb 2026; shipped as `dspy.GEPA`) replaces blind search with reflection. It collects whole trajectories (reasoning, tool calls, tool outputs) and has a model read them to diagnose failures and propose prompt edits. It keeps a **Pareto frontier**, meaning every candidate that is best on at least one example survives, so complementary strategies can be merged later instead of lost to a greedy pick. The argument is about information: a written diagnosis carries far more signal than the single scalar reward an RL update sees. The current revision reports beating GRPO (the RL algorithm in [§04](04-reasoning-models.md)) by 6% on average and up to 20% with up to 35× fewer rollouts, and beating MIPROv2 by over 10%. Those are the authors' benchmarks; check on yours.
 
-- It runs the system, collects whole trajectories (reasoning, tool calls, tool outputs), and has a model read them in natural language to diagnose failures and propose prompt edits.
-- It keeps a **Pareto frontier**: every candidate that is best on at least one example survives. Complementary strategies can be combined later instead of lost to a greedy pick.
-- The paper's argument is about information: a written diagnosis carries far more signal than the single scalar reward an RL update sees.
-- The current revision reports beating GRPO (the RL algorithm in [§04](04-reasoning-models.md)) by 6% on average and up to 20%, with up to 35× fewer rollouts, and beating MIPROv2 by over 10%. Those are the authors' benchmarks; check on yours.
-
-The stub below is the core loop. It evaluates the prompt on a dev set, shows a model the failures, gets variants, keeps any variant that beats the best so far, and reports a held-out test score at the end. It is greedy where GEPA keeps a frontier.
+The stub below is the core loop: score the prompt on a dev set, show a model the failures, keep any variant that beats the best so far, and report a held-out test score. It is greedy where GEPA keeps a frontier.
 
 ```python
 import os
@@ -92,13 +84,13 @@ best = optimize("Label this support ticket as billing, outage or account.",
                 dev=tickets[:4], test=tickets[4:])
 ```
 
-**Consequences.** The output is still a prompt, so it is readable, diffable, versioned, reversible and portable, though you should re-optimize after switching models. **Tradeoffs.** Each round costs about variants × dev-set size model calls, and a small dev set overfits, which is why the optimizer never sees the test split. **When not to.** Without a metric you trust, an optimizer exploits a weak judge just as RL does.
+The output is still a prompt: readable, diffable, reversible and portable (re-optimize after switching models). Each round costs about variants × dev-set size calls, and a small dev set overfits, which is why the optimizer never sees the test split. Without a metric you trust, don't bother: an optimizer exploits a weak judge just as RL does.
 
 ### Rung 5: supervised fine-tuning, full and low-rank
 
-**SFT** continues training on (prompt, ideal response) pairs with the next-token loss used in pretraining ([§02](02-how-llms-work.md)). *Full fine-tuning* updates every weight. With the Adam optimizer in mixed precision, each trainable parameter needs about 16 bytes: the 16-bit weight and gradient, a 32-bit master copy and two optimizer statistics (the ZeRO paper's accounting). So an 8B model needs about 128 GB before activations, and every fine-tune is a full copy of the model.
+**SFT** continues training on (prompt, ideal response) pairs with the pretraining next-token loss ([§02](02-how-llms-work.md)). *Full fine-tuning* updates every weight. With the Adam optimizer in mixed precision, each trainable parameter needs about 16 bytes (16-bit weight and gradient, a 32-bit master copy, two optimizer statistics; the ZeRO paper's accounting), so an 8B model needs about 128 GB before activations, and every fine-tune is a full model copy.
 
-**LoRA** (low-rank adaptation; Hu et al., Jun 2021) starts from one observation. A weight matrix W maps a d_in-dimensional input to a d_out-dimensional output, and fine-tuning changes it by some ΔW of the same shape. For a narrow task that change seems to need only a few independent directions, so ΔW is close to *low rank*. A low-rank matrix factors into a thin matrix times a wide one:
+**LoRA** (low-rank adaptation; Hu et al., Jun 2021) starts from one observation. Fine-tuning changes a weight matrix W by some ΔW of the same shape, and for a narrow task that change seems to need only a few independent directions: ΔW is close to *low rank*. A low-rank matrix factors into a thin matrix times a wide one:
 
 ```text
   W'x = Wx + (α/r) · B(Ax)        W: d_out × d_in   frozen
