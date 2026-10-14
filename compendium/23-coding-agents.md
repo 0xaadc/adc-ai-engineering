@@ -52,7 +52,7 @@ In **agentic search**, the agent finds code the way a developer does: grep for a
 - **Indexes go stale.** An embedding index is a materialized view that is out of date after every commit, including the agent's own edit a minute ago.
 - **Chunking breaks code.** Cline (May 2025): "when you chunk code for embeddings, you're literally tearing apart its logic."
 
-The price of agentic search is more tool calls and tokens (P3, P10), and the question isn't settled. Cursor reported (Nov 2025, vendor-measured) that adding its trained semantic search alongside grep raised answer accuracy by 12.5% on average, with larger gains in big codebases. Its conclusion was that the combination works best: grep for exact symbols, semantic search for "where do we handle auth?" in a repository too large to explore. A P12 footnote: as of Oct 2026, Claude Code on macOS and Linux leaves out its dedicated Grep and Glob tools by default and calls embedded `ugrep` and `bfs` through Bash. The general tool replaced the special ones.
+The price is more tool calls and tokens (P3, P10), and the debate isn't settled. Cursor reported (Nov 2025, vendor-measured) that adding its own semantic search *alongside* grep raised answer accuracy by 12.5% on average, most in large codebases. A P12 footnote: as of Oct 2026, Claude Code on macOS and Linux drops its dedicated Grep and Glob tools by default and calls embedded `ugrep` and `bfs` through Bash, so the general tool replaced the special ones.
 
 ### Editing code: why exact-match replacement won
 
@@ -149,9 +149,9 @@ Product undo is narrower than it looks. Claude Code's `/rewind` restores edits m
 
 ### AGENTS.md and CLAUDE.md
 
-The model is stateless (P2), so whatever a new teammate would need must arrive in the context. An **instruction file** is plain Markdown that the harness loads at the start of every session: commands, conventions, boundaries. Codex read `AGENTS.md` from its launch in May 2025, and in Aug 2025 the name became a shared convention at agents.md, built with Amp, Google's Jules, Cursor and Factory **(⚠ verify: exact launch date)**. The site lists 60k+ repositories and says the format "is now stewarded by the Agentic AI Foundation." This is P11: one file every agent reads, instead of one rules file per agent per repository.
+The model is stateless (P2), so whatever a new teammate would need must be in its context. An **instruction file** is plain Markdown that the harness loads at the start of every session: commands, conventions, boundaries. Codex read `AGENTS.md` from its May 2025 launch, and in Aug 2025 the name became a shared convention at agents.md, built with Amp, Jules, Cursor and Factory **(⚠ verify: exact launch date)**. The site lists 60k+ repositories and says the format "is now stewarded by the Agentic AI Foundation." That is P11: one file every agent reads, instead of one rules file per agent.
 
-There are no required fields. In a monorepo, nested files apply and "the closest AGENTS.md to the edited file wins." Claude Code uses `CLAUDE.md`. Since v2.1.277 it reads `AGENTS.md` when no `CLAUDE.md` exists, and a `CLAUDE.md` can also import it with `@AGENTS.md`. The docs suggest keeping each file under 200 lines because longer ones "reduce adherence" (P3). [§19](19-harness-engineering.md) explains why the file should be a map rather than a manual, with each line traceable to a real mistake. Here is a sample for a data-pipeline repository:
+The format has no required fields, and in a monorepo "the closest AGENTS.md to the edited file wins." Claude Code reads `CLAUDE.md`. Since v2.1.277 it also reads `AGENTS.md` when no `CLAUDE.md` exists, and you can import it explicitly with `@AGENTS.md`. Keep each file under about 200 lines, because longer ones "reduce adherence" (P3). It should be a map, not a manual, with every line traceable to a real mistake ([§19](19-harness-engineering.md)). A sample for a data-pipeline repository:
 
 ```markdown
 Python 3.12 + dbt project that builds the `orders` marts. Map: docs/architecture.md
@@ -208,7 +208,7 @@ The tools she tested:
 - **GitHub's Spec Kit** (Sep 2, 2025) runs Constitution → Specify → Plan → Tasks. The **constitution** is a rules file of "immutable" principles.
 - **Tessl** explores spec-as-source, stamping generated files `// GENERATED FROM SPEC - DO NOT EDIT`.
 
-The mechanism is sound: a spec front-loads intent and gives reviewers something to check against. Her tests exposed the costs, though. Kiro turned a small bug into "4 'user stories' with a total of 16 acceptance criteria." Spec Kit's markdown was "very verbose and tedious to review." Agents still skipped instructions, a "false sense of control." She likens spec-as-source to model-driven development, which "never took off for business applications" and now has non-determinism added. Use specs for medium-sized, well-understood features, and skip them for small fixes.
+A spec front-loads intent into context and gives reviewers something to check against. Böckeler also found the costs. Kiro turned a small bug into "4 'user stories' with a total of 16 acceptance criteria." Spec Kit's markdown was "very verbose and tedious to review." Agents still ignored instructions, which gives "a false sense of control." She compares spec-as-source to model-driven development, which "never took off for business applications," with non-determinism added on top. Use specs for medium-sized, well-understood features and skip them for small fixes.
 
 ### Compound engineering
 

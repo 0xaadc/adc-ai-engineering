@@ -58,8 +58,7 @@ def call_model(messages):           # stub: replay the script, one reply per ass
 def vm(name, inp):  # stub driver for a sandboxed VM (xdotool, Playwright...), never your laptop (P6)
     if "coordinate" in inp:
         x, y = (round(v * SCREEN_W / SHOT_W) for v in inp["coordinate"])  # back to real pixels
-    if name not in ("screenshot", "zoom"):
-        return "OK"
+    if name not in ("screenshot", "zoom"): return "OK"
     png = b"\x89PNG..."                        # capture the display, resize to SHOT_W wide
     return [{"type": "image", "source": {"type": "base64", "media_type": "image/png",
                                          "data": base64.b64encode(png).decode()}}]
