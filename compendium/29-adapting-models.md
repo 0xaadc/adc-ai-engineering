@@ -22,10 +22,11 @@ Adapting the model either finds a better context automatically or moves behavior
 ### The ladder, cheapest first
 
 ```text
- CHANGES THE CONTEXT: minutes to hours, reversible            CHANGES THE WEIGHTS: days, sticky, tied to a base model
- 1 prompt ─► 2 few-shot ─► 3 RAG + tools ─► 4 prompt optimization ─► 5 SFT ─► 6 DPO ─► 7 RFT ─► 8 distillation
- data:  none   3–20 examples  corpus, APIs     dev set + metric        demos    pairs    prompts    teacher outputs
-                                                                                         + grader   on real inputs
+                      ◄─ changes the CONTEXT ─►               │          ◄─ changes the WEIGHTS ─►
+                     minutes to hours, reversible             │      days, sticky, tied to a base model
+ rung: 1 prompt   2 few-shot     3 RAG + tools  4 prompt opt. │ 5 SFT   6 DPO   7 RFT      8 distillation
+ data: none       3–20 examples  corpus, APIs   dev set +     │ demos   pairs   prompts +  teacher outputs
+                                                metric        │                 grader     on real inputs
 ```
 
 Rungs 1–3 are earlier sections ([§05](05-api-and-prompting.md), [§09](09-rag.md), [§10](10-tool-use.md)). Don't skip them. Most plateaus come from a missing piece of context, a vague instruction or a fact the model never received.
