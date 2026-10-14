@@ -58,10 +58,10 @@ def call_model(system: str, messages: list) -> str:
     """Stub for client.messages.create(model=..., system=system, messages=messages).
     Each call gets its OWN messages list: that is what makes it a separate agent."""
     if system.startswith("Plan"):
-        return json.dumps([{"objective": f"Find the {topic} of Snowflake, Databricks, BigQuery",
+        return json.dumps([{"objective": f"Find the {t} of Snowflake, Databricks, BigQuery",
                             "output": "3 bullets, each with a source URL",
                             "boundaries": "public docs only; read-only"}
-                           for topic in ("pricing model", "streaming-ingestion options", "governance features")])
+                           for t in ("pricing model", "streaming ingestion", "governance features")])
     if system.startswith("Research"):
         brief = json.loads(messages[0]["content"])
         return f"- findings on: {brief['objective']}"  # a real subagent compresses ~30k -> ~300
@@ -92,7 +92,7 @@ def orchestrate(question: str, max_subagents: int = 4) -> str:
 print(orchestrate("Compare three warehouses for a streaming-heavy team."))
 ```
 
-Two lines make this *multi-agent* rather than "one agent calling functions." Each subagent starts from an empty context that holds only its brief, and only the lead writes the final artifact. Platforms now package this pattern. In Claude Managed Agents' multiagent orchestration **(Preview)**, a session's agent delegates to subagents that run in isolated threads (one level deep, at most 25 child threads at a time), or writes a "dynamic workflow" that runs many agents in phases.
+Two things make this *multi-agent* rather than "one agent calling functions." Each subagent starts from an empty context that holds only its brief, and only the lead writes the final artifact. Platforms now package this pattern. In Claude Managed Agents' multiagent orchestration **(Preview)**, a session's agent delegates to subagents that run in isolated threads (one level deep, at most 25 child threads at a time), or writes a "dynamic workflow" that runs many agents in phases.
 
 ### Topologies: one taxonomy, many names
 
@@ -153,7 +153,7 @@ Walden Yan's post, published the day before Anthropic's, set out two principles:
 1. "Share context, and share full agent traces, not just individual messages."
 2. "Actions carry implicit decisions, and conflicting decisions carry bad results."
 
-His example splits "build a Flappy Bird clone" into a background and a bird. One subagent builds a Super Mario-style background, while the other builds a bird in a different visual style. Each acted sensibly on assumptions the other couldn't see, and copying the original task to both doesn't fix that. His default was a single-threaded linear agent, plus, for very long tasks, a model dedicated to compressing history into key decisions. He also noted that Claude Code's subagents, as of June 2025, only answered questions and never wrote code in parallel.
+His example splits "build a Flappy Bird clone" into a background and a bird. One subagent builds a Super Mario-style background, while the other builds a bird in a different visual style. Each acted sensibly on assumptions the other couldn't see, and copying the original task to both doesn't fix that. His default was a single-threaded linear agent, plus, for very long tasks, a model dedicated to compressing history into key decisions. He also noted that Claude Code's subagents, as of June 2025, were usually asked only to answer a question, not to write code, and never worked in parallel with the main agent.
 
 The April 22, 2026 follow-up, "Multi-Agents: What's Actually Working," kept that diagnosis for "parallel-writer swarms," which still see little real adoption. It reported a narrower class that works: "multiple agents contribute intelligence to a task while writes stay single-threaded." The examples:
 

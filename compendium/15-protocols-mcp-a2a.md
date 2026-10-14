@@ -8,15 +8,15 @@ Anthropic open-sourced the **Model Context Protocol (MCP)** on November 25, 2024
 
 ## Why this exists
 
-**The N×M problem (P11).** Say there are N AI applications (Claude Code, an IDE, your LangGraph service) and M systems they need (Jira, Snowflake, GitHub). Without a standard, every pair needs its own integration: N×M pieces of code, each with its own auth, schema and bugs. With a shared protocol, each application implements the client side once and each system implements the server side once, so the cost becomes N+M. You know this story from databases. Before ODBC and JDBC, every BI tool needed a custom driver per database. Afterwards, each database shipped one driver and each tool spoke one API. MCP describes its own lineage as the Language Server Protocol, which did the same for editors and programming languages.
+**The N×M problem (P11).** Say there are N AI applications (Claude Code, an IDE, your LangGraph service) and M systems they need (Jira, Snowflake, GitHub). Without a standard, every pair needs its own integration: N×M pieces of code, each with its own auth and bugs. With a shared protocol, each application implements the client once and each system implements the server once, so the cost becomes N+M. You know this from databases. Before ODBC and JDBC, every BI tool needed a driver per database. Afterwards, each database shipped one driver and every tool spoke one API. MCP names its own model as the Language Server Protocol, which did the same for editors and languages.
 
-The MCP docs offer an analogy: "Think of MCP like a USB-C port for AI applications." It captures the plug-compatibility. It misses three things:
+The MCP docs say: "Think of MCP like a USB-C port for AI applications." That captures plug-compatibility and misses three things:
 
-- **A plug says nothing about quality.** MCP standardizes discovery and invocation, not whether a tool is well designed. A vague tool description is still vague, and the model picks tools from descriptions ([§10](10-tool-use.md)).
-- **The device talks to the model.** Tool descriptions and results are text placed in the model's context, so a server can steer the model (P9). A USB cable carries data to drivers, not instructions to the operator.
-- **Every plugged-in device costs context.** Each tool definition consumes tokens on every request (P3), which you will see below.
+- **A plug says nothing about quality.** MCP standardizes discovery and invocation, not tool design. A vague description stays vague, and the model picks tools from descriptions ([§10](10-tool-use.md)).
+- **The device talks to the model.** Descriptions and results are text in the model's context, so a server can steer it (P9).
+- **Every plugged-in device costs context.** Each tool definition consumes tokens on every request (P3).
 
-P6 is unchanged. MCP doesn't make the model execute anything. The model still proposes a tool call. The host's MCP client sends it to a server, and code there executes it.
+P6 is unchanged: the model proposes a call, and code on the server executes it.
 
 ## How it works (under the hood)
 
@@ -145,7 +145,7 @@ async def main():
 anyio.run(main)
 ```
 
-For *remote* servers you can skip this glue. Anthropic's **MCP connector (Preview)** takes `mcp_servers=[{"type": "url", "url": ..., "name": ...}]` together with a `tools=[{"type": "mcp_toolset", "mcp_server_name": ...}]` entry under the beta `mcp-client-2025-11-20`, and Anthropic makes the MCP calls server-side. OpenAI's Responses API has an equivalent `{"type": "mcp", "server_label": ..., "server_url": ..., "require_approval": ...}` tool. Google ADK ships MCP tool support.
+For *remote* servers you can skip this glue. Anthropic's **MCP connector (Preview)** takes `mcp_servers=[{"type": "url", "url": ..., "name": ...}]` plus a matching `{"type": "mcp_toolset", "mcp_server_name": ...}` entry in `tools` (beta `mcp-client-2025-11-20`), and makes the MCP calls server-side. OpenAI's Responses API has a `{"type": "mcp", "server_label": ..., "server_url": ...}` tool, and Google ADK has MCP tool support.
 
 ### Transports: stdio vs Streamable HTTP
 

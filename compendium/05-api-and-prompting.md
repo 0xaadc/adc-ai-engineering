@@ -124,7 +124,7 @@ The printed `input_tokens` climbs with every turn. The consequences:
 - **The context window is a hard wall (P3).** Eventually history has to be trimmed, summarized or compacted ([§16](16-context-engineering.md)).
 - **You own the history.** You can insert synthetic turns, such as few-shot examples written as past exchanges. On current models, editing *earlier* turns invalidates stored thinking blocks, so append-only is the safe default (§04).
 
-In data-engineering terms, each call recomputes a view from the full event log with no materialization. Caching is the materialization. Server-side state options exist: OpenAI's `previous_response_id`, Gemini's `previous_interaction_id`, and Anthropic's Managed Agents sessions ([§20](20-agent-runtime.md)). They only move the replay to the vendor. OpenAI's docs state that replayed tokens are still billed as input.
+In data-engineering terms, each call recomputes a view from the full event log, and caching is the materialization. Server-side state (OpenAI's `previous_response_id`, Gemini's `previous_interaction_id`, Anthropic's Managed Agents sessions in [§20](20-agent-runtime.md)) only moves the replay to the vendor; OpenAI's docs state that replayed tokens are still billed as input.
 
 ### Parameters
 
@@ -192,7 +192,7 @@ print(len(final.content), "content blocks")
 
 Every technique changes the tokens the next-token distribution is conditioned on (P1), so that probability mass concentrates on the output you want.
 
-**Clear, specific instructions.** "Summarize this" is consistent with many tasks of different lengths, audiences and emphases, so the output distribution spreads across all of them. Explicit constraints prune those readings, and instruction tuning ([§02](02-how-llms-work.md)) trained the model to obey them. Giving the *reason* behind a constraint lets the model generalize. Anthropic's example: "this will be read aloud by text-to-speech, so never use ellipses" works better than "NEVER use ellipses". A good test is whether a capable new colleague with no context could follow the prompt.
+**Clear, specific instructions.** "Summarize this" is consistent with many tasks of different lengths, audiences and emphases, so the output distribution spreads across all of them. Explicit constraints prune those readings, and instruction tuning ([§02](02-how-llms-work.md)) trained the model to obey them. Giving the *reason* behind a constraint lets the model generalize: Anthropic's example is that "this will be read aloud by text-to-speech, so never use ellipses" beats "NEVER use ellipses". The test is whether a capable new colleague with no context could follow the prompt.
 
 **Examples (few-shot).** *Few-shot prompting* puts worked input→output examples in the prompt. The GPT-3 paper ("Language Models are Few-Shot Learners") showed that models learn tasks *in context*, with no weight update. One proposed mechanism is the *induction head* (Olsson et al. 2022), an attention circuit that finds an earlier occurrence of the current token and copies what followed it. The consequence is that models copy *everything* about your examples: length, phrasing, label balance. Use 3–5 diverse examples in `<example>` tags so they read as examples, not instructions.
 
@@ -259,7 +259,7 @@ Anthropic calls context engineering "the natural progression of prompt engineeri
 | Why it stopped | `stop_reason` | `status` + `incomplete_details` | `finish_reason` | `status` |
 | Streaming | SSE named events (`message_start` … `message_stop`) | SSE semantic events (`response.output_text.delta`, …) | SSE `data:` chunks | SSE |
 
-The shapes differ, but the substance is the same everywhere: a model ID, instructions, the conversation, an output cap and a reasoning dial go in; typed output and a stop signal come out. Only the convenience of server-side history varies, and it doesn't make the model itself stateful.
+The substance is the same everywhere: model, instructions, conversation, output cap and reasoning dial in; typed output and a stop signal out. Server-side history is a convenience, not a stateful model.
 
 ## What it didn't solve
 
@@ -291,7 +291,7 @@ The model continues every pattern in its context, so it copies your examples' le
 
 **Q: What would happen if your streaming code assumed an HTTP 200 meant the response would complete?**
 
-An SSE stream can carry an `error` event, such as `overloaded_error`, after the 200 and partway through the text. Code that ignores it would show a truncated answer as if it were complete, or crash waiting for `message_stop`. Handle error events, check the final `stop_reason`, and resume through a user message rather than prefill.
+An SSE stream can carry an `error` event such as `overloaded_error` after the 200, partway through the text. Code that ignores it shows a truncated answer as if complete, or hangs waiting for `message_stop`. Handle error events, check the final `stop_reason`, and resume through a user message, not prefill.
 
 **Q: Why are XML tags in a prompt not a defense against prompt injection?**
 
