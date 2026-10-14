@@ -156,63 +156,56 @@ A **transport** defines how the JSON-RPC bytes move. The 2026-07-28 spec defines
 
 ### The 2026-07-28 revision
 
-This was the largest revision since launch, and it contains breaking changes. All points below are checked against the spec changelog and the release-candidate post. The RC was locked May 21, 2026, and the final spec was published July 28, 2026 **(GA)**.
+This was the largest revision since launch, with breaking changes. Everything below is checked against the spec changelog and the release-candidate post. The RC was locked May 21, 2026, and the final spec was published July 28, 2026 **(GA)**.
 
-**A stateless core.** In 2025-11-25, a client opened with an `initialize` handshake, and over HTTP the server issued an `Mcp-Session-Id` that pinned the client to one server instance. Both are gone. Every request now carries its protocol version and capabilities in `_meta`, as in the capture above, and a new `server/discover` method returns server capabilities up front. Any instance can serve any request, so a remote server can run behind a plain round-robin load balancer with no sticky sessions or shared session store. It is the familiar move from sticky-session web apps to stateless services. Applications can still keep state: a tool mints an explicit handle, such as a `basket_id`, and the model passes it back as an ordinary argument. The state becomes visible to the model instead of hidden in transport metadata.
+**A stateless core.** In 2025-11-25, a client opened with an `initialize` handshake, and over HTTP the server issued an `Mcp-Session-Id` that pinned the client to one instance. Both are gone. Every request carries its version and capabilities in `_meta`, as in the capture above, and a new `server/discover` method returns server capabilities on demand. Any instance can serve any request, so a remote server can sit behind a plain round-robin load balancer, the familiar move from sticky sessions to stateless services. Applications can still keep state: a tool mints an explicit handle, such as a `basket_id`, that the model passes back as an argument, so the state is visible to the model instead of hidden in transport metadata.
 
-**Servers no longer send requests to clients.** Sampling, roots and elicitation used to be server-initiated requests over a held-open stream. Under **Multi Round-Trip Requests (MRTR)**, a server that needs input returns a result with `"resultType": "input_required"`, listing `inputRequests` and an opaque `requestState`. The client gathers the answers and *retries the original call* with `inputResponses`, using a new JSON-RPC `id`. Because everything travels in the payload, any instance can handle the retry, much like a continuation token in a paginated REST API.
+**Servers no longer send requests to clients.** Sampling, roots and elicitation used to be server-initiated requests over a held-open stream. Under **Multi Round-Trip Requests (MRTR)**, a server that needs input returns `"resultType": "input_required"` with `inputRequests` and an opaque `requestState`. The client *retries the original call* with `inputResponses` and a new JSON-RPC `id`. Because everything is in the payload, any instance can handle the retry, like a continuation token in a paginated REST API.
 
-**Routable, cacheable, traceable.**
-- Streamable HTTP requests must carry `Mcp-Method` and `Mcp-Name` headers, so gateways can route without parsing bodies.
-- List results carry `ttlMs` and `cacheScope`, modeled on HTTP `Cache-Control`.
-- Servers SHOULD return tools in a deterministic order, explicitly to improve LLM prompt-cache hit rates (P10).
-- W3C trace context (`traceparent`) is standardized in `_meta`, so one OpenTelemetry trace can follow a call from host to server ([§27](27-observability.md)).
-- `subscriptions/listen` replaces the old GET stream for change notifications.
+**Routable, cacheable, traceable.** HTTP requests carry `Mcp-Method` and `Mcp-Name` headers so gateways can route without parsing bodies. List results carry `ttlMs` and `cacheScope`, modeled on HTTP `Cache-Control`. Servers SHOULD list tools in a deterministic order, explicitly to improve prompt-cache hit rates (P10). And W3C trace context in `_meta` lets one OpenTelemetry trace follow a call from host to server ([§27](27-observability.md)).
 
-**An extensions framework.** Extensions have reverse-DNS IDs, are negotiated through an `extensions` map in capabilities, live in their own `ext-*` repositories, and are versioned independently of the spec. Extensions are always opt-in. The official ones are:
-- **Tasks**, for long-running work. A server can answer `tools/call` with a task handle, and the client drives it with `tasks/get` (polling), `tasks/update` (mid-flight input) and `tasks/cancel`. Tasks were an experimental core feature in 2025-11-25 and were redesigned as an extension. `tasks/list` was dropped because it can't be scoped safely without sessions.
-- **MCP Apps.** A tool declares a UI resource (`_meta.ui.resourceUri` pointing to a `ui://` URI). The host renders it as HTML in a sandboxed iframe, and the UI talks back over the same JSON-RPC, so UI-initiated actions pass the same consent path as tool calls ([§35](35-ai-ux.md)).
-- **Skills over MCP**, which serves Agent Skills from MCP servers ([§18](18-skills.md)).
-- Authorization extensions: OAuth client credentials for machine-to-machine use, and enterprise-managed authorization.
+**An extensions framework.** Extensions have reverse-DNS IDs, are negotiated through an `extensions` map in capabilities, are always opt-in, and are versioned independently of the spec. The official ones are:
+- **Tasks**, for long-running work. A server can answer `tools/call` with a task handle that the client drives with `tasks/get` (polling), `tasks/update` (mid-flight input) and `tasks/cancel`. Tasks were experimental core in 2025-11-25 and were redesigned as an extension.
+- **MCP Apps.** A tool declares a UI resource (`_meta.ui.resourceUri`, a `ui://` URI) that the host renders as HTML in a sandboxed iframe. The UI talks back over the same JSON-RPC, so its actions pass the same consent path as tool calls ([§35](35-ai-ux.md)).
+- **Skills over MCP**, which serves Agent Skills from servers ([§18](18-skills.md)). There are also authorization extensions, such as OAuth client credentials.
 
-**Deprecations under a formal lifecycle.** Features move from Active to Deprecated to Removed, with at least twelve months between deprecation and the earliest removal. Deprecated in this release:
-- **Roots.** Use tool parameters, resource URIs or server configuration instead.
+**Deprecations under a formal lifecycle.** Features move from Active to Deprecated to Removed, with at least twelve months before any removal. This release deprecates:
+- **Roots.** Pass paths as tool parameters or config.
 - **Sampling.** Call an LLM provider API directly.
-- **Logging.** Use stderr for stdio, or OpenTelemetry.
-- The HTTP+SSE transport.
-- Dynamic Client Registration, in favor of Client ID Metadata Documents.
+- **Logging.** Use stderr or OpenTelemetry.
+- The old HTTP+SSE transport.
+- Dynamic Client Registration.
 
-Deprecated features still work during the window. The Python SDK v2 (2.0.0 published July 28, 2026) speaks 2026-07-28 and still serves clients on earlier revisions.
+The Python SDK v2 (2.0.0, July 28, 2026) speaks 2026-07-28 and still serves older clients.
 
 ### Authorization, briefly
 
 For HTTP transports, MCP builds on **OAuth 2.1**:
-- The MCP server is an OAuth *resource server*, and the client is an OAuth *client*. A separate *authorization server* signs the user in and issues tokens.
-- The client discovers that authorization server from the MCP server's **Protected Resource Metadata** (RFC 9728) and uses PKCE.
-- It must name the target server with a **resource indicator** (RFC 8707). Servers must reject tokens not issued for them as the audience.
-- **Token passthrough**, where a server forwards the client's token to an upstream API, is explicitly forbidden. It creates the confused-deputy problem: a server with authority gets tricked into using it for someone else.
-- In 2026-07-28, clients must validate the `iss` parameter (RFC 9207) to stop mix-up attacks, and **Client ID Metadata Documents** replace dynamic registration as the preferred way to obtain a client ID.
+- The MCP server is an OAuth *resource server* and the client an OAuth *client*. A separate *authorization server* signs the user in and issues tokens.
+- The client finds that server through the MCP server's **Protected Resource Metadata** (RFC 9728), uses PKCE, and names its target with a **resource indicator** (RFC 8707). Servers must reject tokens not issued for them as the audience.
+- **Token passthrough**, forwarding the client's token to an upstream API, is forbidden. It invites the confused-deputy problem, where a server is tricked into using its authority for someone else.
+- 2026-07-28 adds mandatory `iss` validation (RFC 9207) against mix-up attacks, and prefers **Client ID Metadata Documents** for client registration.
 
-Who the agent acts *as* and how far its delegated authority reaches is the subject of [§33](33-agent-identity.md).
+Who the agent acts *as* is covered in [§33](33-agent-identity.md).
 
 ### Security risks
 
 Every risk below follows from P9: tool metadata and results enter the same channel as instructions. The spec says tools "represent arbitrary code execution" and that annotations are untrusted unless they come from a trusted server.
 
-- **Tool poisoning.** Invariant Labs (Apr 1, 2025) hid instructions inside a harmless-looking tool's description. The model then read `~/.ssh/id_rsa` and `~/.cursor/mcp.json` and smuggled the contents out through a tool parameter. The user saw only a simplified confirmation dialog.
-- **Rug pulls.** A server changes a tool's description *after* the user approved it. Approval at install time proves nothing about tomorrow's `tools/list`.
-- **Tool shadowing.** A malicious server's description changes how the agent uses a *trusted* server's tools, because every connected description shares one context.
-- **Over-broad servers.** A server holding a token that can read every repository or write to production turns any successful injection into a breach. Local stdio servers are arbitrary code running with your user's privileges.
+- **Tool poisoning.** Invariant Labs (Apr 1, 2025) hid instructions in a harmless-looking tool's description. The model read `~/.ssh/id_rsa` and `~/.cursor/mcp.json` and smuggled them out through a tool parameter, behind a simplified confirmation dialog.
+- **Rug pulls.** A server changes a description *after* approval, so approving at install time proves nothing about tomorrow's `tools/list`.
+- **Tool shadowing.** A malicious server's description changes how the agent uses a *trusted* server's tools, because all descriptions share one context.
+- **Over-broad servers.** A token that can read every repository or write to production turns any injection into a breach. Local stdio servers are arbitrary code running with your privileges.
 
-The mitigations are least privilege, not prompt pleading. Use narrowly scoped tokens, an allowlist of servers and tools, pinned versions with hashes of tool definitions (re-approve when they change), human confirmation for writes, sandboxed local servers, and a gateway for remote ones. See [§32](32-security-guardrails.md).
+The mitigations are least privilege, not prompt pleading. Scope tokens narrowly, allowlist servers and tools, pin versions and hash tool definitions (re-approve on change), confirm writes with a human, and sandbox local servers ([§32](32-security-guardrails.md)).
 
 ### MCP vs plain tool use
 
-MCP is a **distribution and interoperability layer**, not a better way to call functions. Inside one application, with a handful of tools you own, plain tool definitions ([§10](10-tool-use.md)) are simpler. There is no extra process, no JSON-RPC, no second auth system and no version negotiation. MCP pays off when the same tools serve several hosts, when a third party maintains them, when users bring their own integrations, or when an organization wants one governed catalog. It is overkill for a single app, a few tools and tight latency budgets.
+MCP is a **distribution and interoperability layer**, not a better way to call functions. Inside one application with a handful of tools you own, plain tool definitions ([§10](10-tool-use.md)) are simpler: no extra process, no JSON-RPC, no second auth system. MCP pays off when tools serve several hosts, when third parties maintain them, when users bring their own, or when an organization wants one governed catalog.
 
 ### The context cost of many tools
 
-Each connected tool's name, description and schema are injected into *every* request. Anthropic's example: five servers (GitHub, Slack, Sentry, Grafana, Splunk) expose 58 tools that take about 55K tokens "before the conversation even starts". Internally, they saw tool definitions reach 134K tokens before optimization. Accuracy suffers as well, because similar names such as `notification-send-user` and `notification-send-channel` cause wrong picks (P3). There are two mitigations. **Tool search** marks tools `defer_loading: true` and lets the model search for them on demand, which Anthropic reported as an 85% reduction. **Code execution with MCP** presents tools as code files the agent imports, which cut one workflow from 150,000 tokens to 2,000. Both are context engineering, which is where this leads.
+Each connected tool's name, description and schema are injected into *every* request. In Anthropic's example, five servers (GitHub, Slack, Sentry, Grafana, Splunk) expose 58 tools worth about 55K tokens "before the conversation even starts", and internally they saw 134K tokens of definitions before optimization. Similar names such as `notification-send-user` and `notification-send-channel` also cause wrong picks (P3). There are two mitigations. **Tool search** (`defer_loading: true`, loaded on demand) gave an 85% reduction. **Code execution with MCP**, which exposes tools as code files the agent imports, cut one workflow from 150,000 to 2,000 tokens.
 
 ### A2A: agent to agent
 

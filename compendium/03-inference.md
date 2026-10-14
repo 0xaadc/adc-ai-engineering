@@ -126,7 +126,7 @@ For you as an API caller, three things follow:
 
 ### Quantization
 
-**Quantization** stores weights (and sometimes the KV cache) in fewer bits than the 16-bit FP16/BF16 standard: **FP8** or **INT8** (8 bits), or **INT4** (4 bits) with methods such as GPTQ and AWQ that pick scaling factors to limit error. LLM.int8() showed that a few large "outlier" values need special handling to keep 8-bit accuracy.
+**Quantization** stores weights (and sometimes the KV cache) in fewer bits than the 16-bit FP16/BF16 standard: **FP8** or **INT8** (8 bits), or **INT4** (4 bits) with methods such as GPTQ and AWQ that choose how to round weights so each layer's output changes as little as possible. LLM.int8() showed that a few large "outlier" values need special handling to keep 8-bit accuracy.
 
 The mechanism ties straight back to decode being memory-bound: half the bytes means roughly half the time per decode step, and half the memory means bigger batches or fewer GPUs. A 70B model drops from 140 GB at 16 bits to about 70 GB at 8 bits and about 35 GB at 4 bits, plus overhead for the scales. Newer GPUs such as the H100 add FP8 math units, so FP8 also speeds up compute-bound prefill. Weight-only INT4 mostly saves bandwidth, because the weights are typically converted back to 16-bit for the actual math.
 
@@ -188,7 +188,7 @@ The total prompt is `input_tokens + cache_creation_input_tokens + cache_read_inp
 - Each hit refreshes the 5-minute timer.
 - Reads cost 0.1× base input on most models, 0.05× on Claude Opus 5.5 and Sonnet 5.5, and 0.025× on Claude Fable 5.1.
 
-Elsewhere, OpenAI caches automatically for prompts of at least 1,024 tokens on GPT-5.6 and later. Gemini offers implicit caching (4,096-token minimum on current models) as well as explicit caches.
+OpenAI's shape is now similar on GPT-5.6 and later: a 1,024-token minimum, breakpoints you place or let OpenAI choose, writes at 1.25× and most reads at 0.1×. Gemini caches implicitly (4,096-token minimum on current models) and also offers explicit caches.
 
 Design rules follow from the mechanism. Put stable content first (tools, system prompt, documents) and volatile content last (timestamps, user IDs, the question itself). Keep tool lists and JSON serialization deterministic. Caching doesn't help when prompts differ from the very first tokens, when traffic gaps exceed the cache lifetime, or when the prefix is below the provider's minimum length, which on Anthropic fails silently with no error. Check `cache_read_input_tokens` to confirm it is working.
 
@@ -236,7 +236,7 @@ agent turn, warm: 80k in     $0.0165  TTFT  0.50s  total   7.17s
 100k warm agent turns per day for 30 days: $49,650
 ```
 
-Read the shape, not the exact numbers. The classifier pays for input, while the draft pays for output and waits on decode. The warm cache cuts the agent turn's cost by about 12× and its TTFT by about 16×. The cold turn costs slightly more than having no cache at all, because of the write premium. Caching pays off on reuse.
+Read the shape, not the exact numbers. The classifier pays for input, while the draft pays for output and waits on decode. The warm cache cuts the agent turn's cost by about 12× and its TTFT by about 16×. The cold turn costs about 24% more than not caching at all, because of the write premium, so caching pays only when the prefix is reused.
 
 ### Failure modes
 
@@ -273,31 +273,31 @@ Inference engineering made each token cheaper and faster, but it didn't change w
 
 **Q: Why is decode memory-bandwidth-bound while prefill is compute-bound?**
 
-Prefill reuses each weight it loads across thousands of prompt tokens in parallel, so the math units are the limit. Decode produces one token per sequence per pass, so it reloads all the weights to do very little math, and memory speed is the limit. That is why providers batch many users' decode steps together. Batching stops helping once batches become compute-bound or the KV cache fills memory.
+Prefill reuses each loaded weight across thousands of prompt tokens, so math is the limit. Decode reloads every weight to make one token per sequence, so memory speed is the limit. That is why providers batch many users' decode steps together, until batches turn compute-bound or the KV cache fills memory.
 
 **Q: What would happen if a server did not keep a KV cache?**
 
-Every decode step would recompute keys and values for the whole prefix, so step t costs O(t) and a full generation costs O(n²) projections, against O(n) with a cache. Outputs would be identical, only much slower. The cache trades memory for that compute, and at long contexts its memory use caps how many requests fit on a GPU.
+Every step would recompute keys and values for the whole prefix: O(n²) projections per generation instead of O(n). Outputs would be identical, only much slower. The cache trades memory for that compute, and at long contexts that memory caps how many requests fit on a GPU.
 
 **Q: Why are output tokens priced higher than input tokens?**
 
-An input token shares a weight read with thousands of others during prefill. An output token needs its own sequential pass and holds a KV slot until the request finishes. More GPU time per token means a higher price: 5× on current Claude models. So for output-heavy work, shortening the answer saves more money than trimming the prompt.
+An input token shares a weight read with thousands of others during prefill, while an output token needs its own sequential pass and holds a KV slot until the request finishes. More GPU time per token means a higher price (5× on current Claude models). For output-heavy work, shortening the answer saves more than trimming the prompt.
 
 **Q: TTFT vs TPOT: which should you optimize for a chat UI, and which for a nightly batch job?**
 
-A chat UI needs a low TTFT, so the user sees a response start, and a low enough TPOT that streaming reads smoothly. A nightly job cares about neither. It needs throughput and price, so the Batch API's 50% discount is the right tool. Agents sit in between, because they pay end-to-end latency on every step.
+A chat UI needs low TTFT so a response visibly starts, and a TPOT low enough that streaming reads smoothly. A nightly job cares about neither; it needs throughput and price, so the Batch API's 50% discount fits. Agents pay end-to-end latency on every step, so total time matters most.
 
 **Q: What would happen to your cache hit rate if you put the current timestamp at the top of the system prompt?**
 
-It would drop to zero. Caching matches exact prefixes, and a changing first line changes every token's position in the hash chain, so every request pays full prefill price and full TTFT. Nothing errors, so it can go unnoticed for months. Put volatile values after the last cache breakpoint and monitor `cache_read_input_tokens`.
+It would drop to zero. Caching matches exact prefixes, and a changed first line changes every later block's hash, so every request pays full prefill price and TTFT. Nothing errors, so it can go unnoticed. Put volatile values after the last breakpoint and monitor `cache_read_input_tokens`.
 
 **Q: Why does quantization speed up generation, and when should you avoid it?**
 
-Decode is limited by bytes moved, so fewer bits per weight means less data per step and more room for batching. The cost is lost precision, which tends to show up on long reasoning, math and long contexts. Avoid aggressive quantization when your evals show degradation on your task, or when quality matters more than serving cost.
+Decode is limited by bytes moved, so fewer bits per weight means less data per step and more room for batching. The cost is precision, which tends to show on long reasoning, math and long contexts. Avoid aggressive quantization when your evals show degradation, or when quality matters more than serving cost.
 
 **Q: Why doesn't speculative decoding change the model's output?**
 
-The large model checks every drafted token with a rejection-sampling rule that keeps only what it would have produced itself, and supplies the correction at the first mismatch. So the output distribution is the large model's own, and the draft only changes speed. Speedups depend on how often the drafts are accepted, and they shrink when batches are already compute-bound.
+The large model checks every drafted token with a rejection-sampling rule that preserves its own distribution, and supplies the correction at the first mismatch, so the draft changes only speed. Speedups depend on how often drafts are accepted, and they shrink when batches are already compute-bound.
 
 ## Takeaways
 

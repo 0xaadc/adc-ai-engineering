@@ -260,7 +260,7 @@ With subagents, the manager keeps control. Each specialist sees only its brief, 
 
 **Q: Why is "read-heavy" part of the decision rule, and not just "parallelizable"?**
 
-Parallel writes can be perfectly parallelizable and still fail, because every write commits implicit decisions about style, schema and edge cases that other writers can't see (Cognition's Flappy Bird example). Reads commit nothing, and their summaries merge cleanly. It's the many-readers, one-writer rule from any data system without a transaction manager. Parallel writers work only when partitions are truly disjoint and a verification step checks the merge.
+Write-heavy work can look perfectly parallelizable on paper and still fail, because every write commits implicit decisions about style, schema and edge cases that other writers can't see (Cognition's Flappy Bird example). Reads commit nothing, and their summaries merge cleanly. It's the many-readers, one-writer rule from any data system without a transaction manager. Parallel writers work only when partitions are truly disjoint and a verification step checks the merge.
 
 **Q: What would happen if you added agents to a task a single agent already handles at 80% accuracy?**
 

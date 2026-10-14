@@ -49,7 +49,7 @@ OpenAI's "Learning to reason with LLMs" (Sep 12, 2024) introduced o1-preview, tr
 DeepSeek-R1 (arXiv, Jan 22, 2025) mattered because it was open-weight and published how it was made.
 
 - **R1-Zero ran RL directly on a base model, with no supervised fine-tuning.** Its rewards were rule-based: an *accuracy reward* for the final answer and a *format reward* for keeping the thinking inside `<think>` tags. DeepSeek avoided neural reward models because of reward hacking at scale.
-- **The results.** AIME 2024 pass@1 rose from 15.6% to 71.0%, or 86.7% with majority voting. Response length grew on its own during training, including an "aha moment" in which the model learned to stop and re-evaluate.
+- **The results.** AIME 2024 pass@1 rose from 15.6% to 71.0%, or 86.7% with majority voting. Response length grew on its own during training, and the paper describes an "aha moment" in which the model learned to stop and re-evaluate.
 - **R1 itself** added a small "cold-start" supervised dataset and a multi-stage pipeline to fix R1-Zero's poor readability and language mixing.
 - **GRPO** (*Group Relative Policy Optimization*) came earlier, from DeepSeekMath (Feb 2024), as a variant of PPO, the standard RLHF algorithm. PPO trains a second "value" model to estimate a baseline. GRPO drops it and uses the mean reward of a group of answers to the same prompt, as in the diagram, which saves a second large model.
 - **Distillation.** Six smaller open models were fine-tuned on R1's traces. That makes traces valuable training data, which is one reason closed vendors hide them.
@@ -209,7 +209,7 @@ Errors compound (P8). At 90% per-step reliability, a 20-step task succeeds 0.9^2
 | Control | Anthropic Messages | OpenAI Responses | Google Gemini Interactions |
 |---|---|---|---|
 | Depth dial | `output_config.effort`: `low` … `max` | `reasoning.effort`: `none` … `max` (model-dependent); `reasoning.mode: "pro"` on some models | `generation_config.thinking_level`: `minimal` … `high` (model-dependent) |
-| Off switch | Model-specific (`disabled`, `between_tools`, or none) | `effort: "none"` on some models | `minimal` level on some models |
+| Off switch | Model-specific (`disabled`, `between_tools`, or none) | `effort: "none"` on some models | Lowest level `minimal` on some models (**⚠ verify** whether it fully disables thinking) |
 | Hard cap | `max_tokens` (thinking + text) | `max_output_tokens` | `max_output_tokens` (includes thoughts) |
 | What you see | Summary or empty (`display`); never raw | Opt-in `reasoning.summary`; never raw | Opt-in `thinking_summaries` |
 | Continuity token | `signature` per thinking block | `encrypted_content` or stored state | Thought signatures |
