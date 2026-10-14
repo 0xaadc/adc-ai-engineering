@@ -95,12 +95,7 @@ The model is stateless (P2), so step *k* resends all *k* earlier screenshots. As
 
 Latency is worse. Each step is a model round trip plus the action plus a render wait, so a click a person makes in under a second takes the agent seconds. Anthropic's limitations list advises: focus "on use cases where speed isn't critical."
 
-The levers:
-
-- **Batch actions,** to cut round trips.
-- **Lower resolution plus `zoom`,** to keep detail affordable.
-- **Cache breakpoints, and pruning old screenshots in batches,** so the prefix stays stable. On Claude 5.5 models, removing a screenshot client-side invalidates later thinking blocks, so the docs recommend server-side tool-result clearing ([§16](16-context-engineering.md)).
-- **Page structure instead of pixels** wherever a page offers it (below).
+The levers are batch actions (fewer round trips), lower resolution plus `zoom`, cache breakpoints, and page structure instead of pixels where a page offers it (below). Dropping old screenshots needs care. On Claude 5.5 models, removing one client-side invalidates later thinking blocks, so the docs recommend server-side tool-result clearing ([§16](16-context-engineering.md)).
 
 ### Reliability (P8)
 
@@ -140,7 +135,7 @@ Reading a tree gives the agent text instead of an image. A tree read "often cost
 The tooling as of Oct 2026:
 
 - **Anthropic's `browser_toolset_20260801`** **(GA, Claude API and Google Cloud)** has 27 default members, plus `javascript_exec`, `file_upload` and two diagnostics members that stay off until enabled. `read_page` returns the accessibility tree with references such as `[ref_2]`, and a click target is either `{"type": "ref", ...}` or a viewport coordinate. Your executor maps references to real nodes and refuses any URL scheme other than http(s).
-- **Playwright** is Microsoft's browser automation library. **Playwright MCP** drives it "through structured accessibility snapshots, bypassing the need for screenshots." Its README now steers coding agents to a CLI with skills, because that avoids "large tool schemas and verbose accessibility trees" ([§18](18-skills.md)).
+- **Playwright** is Microsoft's browser automation library. **Playwright MCP** drives it "through structured accessibility snapshots, bypassing the need for screenshots," though its README now steers coding agents to a leaner CLI with skills ([§18](18-skills.md)).
 - **browser-use** is an MIT-licensed library that drives Chromium over **CDP** (Chrome DevTools Protocol, the browser's remote-control interface), processes the HTML, and loops a model of your choice.
 - **Agentic browsers** put the agent inside your everyday browser, logged-in sessions included. Examples are Perplexity's Comet **(⚠ verify)**, Claude in Chrome (piloted Aug 2025, beta for all Max subscribers from Nov 24, 2025), and Gemini in Chrome's auto browse **(Preview, ⚠ verify)**. The category is volatile: OpenAI's ChatGPT Atlas launched in Oct 2025 and stopped working on Aug 9, 2026, with its features moved into the ChatGPT app **(⚠ verify)**. An agentic browser is the worst case for P9, combining your real cookies, untrusted pages and the power to act. That is the lethal trifecta.
 
@@ -149,7 +144,7 @@ The tooling as of Oct 2026:
 A **deep-research agent** answers a question by running a long search-and-read loop and writing a report with citations.
 
 - **Gemini Deep Research** (Dec 11, 2024) first proposes "a multi-step research plan for you to either revise or approve." Developers reach it as a **(Preview)** agent in Google's Interactions API, in background mode only.
-- **OpenAI deep research** (Feb 2025) ran on "an early version of OpenAI o3 that is optimized for web browsing." In ChatGPT, a smaller model asks clarifying questions and rewrites the prompt first. The dedicated API models shut down on Jul 23, 2026, and OpenAI now points developers to general models with web search. The specialized model was absorbed into general ones (P12).
+- **OpenAI deep research** (Feb 2025) ran on "an early version of OpenAI o3 that is optimized for web browsing." In ChatGPT, an intermediate model first asks clarifying questions and rewrites the prompt. The dedicated API models shut down on Jul 23, 2026, and OpenAI now points developers to general models with web search. The specialized model was absorbed into general ones (P12).
 - **Anthropic Research** (Apr 15, 2025) uses a lead agent with parallel search subagents. [§13](13-multi-agent.md) has the numbers: a 90.2% gain over a single agent, about 15× the tokens of chat, and token usage explaining 80% of BrowseComp variance.
 
 ```text
@@ -166,15 +161,9 @@ question ─▶ (clarify / plan) ─▶ lead agent ──fan out──▶ subage
 
 **Hallucinated citations** are the signature failure. A next-token predictor knows from its weights what a citation looks like (P1, P5), so it can emit a plausible URL or title it never retrieved. The structural fix is to accept citations only to document IDs the harness fetched. Vendors restrict URLs for security reasons too. Claude's web fetch "can only fetch URLs that have previously appeared in the conversation." OpenAI's deep research is not allowed "to navigate to or construct arbitrary URLs," so an injected page can't leak an API key through a URL parameter.
 
-**Evaluation.** BrowseComp's 1,266 questions are "inverted": the authors start from a fact and write a question whose short answer is "hard to find but easy to verify." Human trainers solved 29.2% of the ones they attempted, usually giving up only after about two hours. Browsing models were also *worse calibrated*, meaning confident when wrong. BrowseComp measures persistence, not report quality. For reports, Anthropic used a rubric judge covering factual accuracy, citation accuracy, completeness, source quality and tool efficiency, and started with about 20 real queries. Human testers still caught what the judge missed: early agents "consistently chose SEO-optimized content farms over authoritative but less highly-ranked sources" ([§26](26-evals.md)).
+**Evaluation.** BrowseComp's 1,266 questions are "inverted": the authors start from a fact and write a question whose short answer is "hard to find but easy to verify." Human trainers solved only 29.2% of those they attempted. Browsing models were also *worse calibrated*, meaning confident when wrong. BrowseComp measures persistence, not report quality. For reports, Anthropic started with about 20 real queries, then scaled up with a rubric judge (factual accuracy, citation accuracy, completeness, source quality, tool efficiency). Humans still caught what the judge missed: early agents "consistently chose SEO-optimized content farms over authoritative but less highly-ranked sources" ([§26](26-evals.md)).
 
-**Failure modes:**
-
-- poor sources, stale pages, and the first results page standing in for the field
-- real sources cited for claims they don't make
-- contradictions flattened into one confident sentence
-- injection, which OpenAI's system card splits into wrong answers and data exfiltration
-- cost, which OpenAI's guide controls mainly with `max_tool_calls`, "the primary tool available to you to constrain cost and latency," plus background mode and webhooks ([§20](20-agent-runtime.md))
+**Failure modes:** weak or stale sources, real sources cited for claims they don't make, contradictions flattened into one confident sentence, injection (OpenAI's system card names wrong answers and data exfiltration), and cost. OpenAI's main cost control is `max_tool_calls`, "the primary tool available to you to constrain cost and latency," plus background mode and webhooks ([§20](20-agent-runtime.md)).
 
 ### A research orchestrator outline
 

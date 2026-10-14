@@ -4,12 +4,12 @@
 
 ## Where this fits
 
-Part 6 covers agent archetypes, the specific kinds of agent built from the parts in Parts 4 and 5. [§22](22-build-a-harness.md) built a harness from scratch, and this section studies the archetype where that machinery matured first. A **coding agent** is an agent that can read, edit and run code in a loop until a goal is met. Coding became the dominant agent category of 2025–26 because code is the ideal domain for P8: compilers, type checkers, linters and tests give cheap, computational verification after every step. The road there had four stages, and each one removed a human hand-off:
+Part 6 covers agent archetypes. [§22](22-build-a-harness.md) built a harness from scratch, and this section studies the archetype where that machinery matured first. A **coding agent** is an agent that can read, edit and run code in a loop until a goal is met. Coding became the dominant agent category of 2025–26 because code is the ideal domain for P8: compilers, type checkers, linters and tests give cheap, computational verification after every step. The road there had four stages, and each one removed a human hand-off:
 
 | Stage | What the tool does | Who runs the code | Examples |
 |---|---|---|---|
 | Autocomplete | Predicts the next lines as you type | You | GitHub Copilot preview (Jun 29, 2021), built on OpenAI's Codex *model* |
-| Chat in the IDE | You paste code and errors in and copy answers out | You | Copilot Chat, Cursor (2023) |
+| Chat in the IDE | You paste code and errors in and copy answers out | You | Copilot Chat, Cursor (2023) **(⚠ verify: exact dates)** |
 | Agentic IDEs and CLIs | Searches, edits and runs tests in a loop on your machine | The agent, with your approval | Copilot agent mode (Feb 6, 2025); Claude Code preview (Feb 24, 2025), **(GA)** May 22, 2025; Codex CLI (Apr 16, 2025); Gemini CLI (Jun 25, 2025) |
 | Cloud and background agents | Takes an assigned task, works in a remote sandbox, opens a PR | The agent, in a sandbox | Devin (Mar 2024); Codex cloud (May 2025); Copilot coding agent (May 19, 2025); Claude Code on the web (Oct 20, 2025, **(GA)** as "cloud sessions" Sep 23, 2026) |
 
@@ -85,7 +85,7 @@ Both vendors ship this mechanism as a client-executed tool:
 - **Anthropic** offers `{"type": "text_editor_20250728", "name": "str_replace_based_edit_tool"}` with `view`, `create`, `str_replace` and `insert` commands.
 - **OpenAI's** Responses API offers `{"type": "apply_patch"}`. Its `create_file`, `update_file` and `delete_file` operations carry V4A diffs that your harness applies before it returns an `apply_patch_call_output`.
 
-Models overfit to the format they were trained with ([§19](19-harness-engineering.md)), so keep that format.
+Models overfit to the edit format they were trained with ([§19](19-harness-engineering.md)), so give each model its native one.
 
 ### Running the code: tests as the feedback signal
 
@@ -134,7 +134,7 @@ while (resp := call_model(messages))["stop_reason"] == "tool_use":   # the §11 
     messages.append({"role": "user", "content": results})
 ```
 
-It prints `exit code 1`, the numbered file, `Edited calc.py`, then `exit code 0`. To go live, pass JSON schemas for the tools ([§10](10-tool-use.md)). Note the order: the stub runs the tests *before* editing, which confirms the test actually catches the bug. Willison condenses this into two four-word prompts, "First run the tests" and "Use red/green TDD." Claude Code's best-practices page states the general rule: "Without a check it can run, 'looks done' is the only signal available, and you become the verification loop."
+It prints `exit code 1`, the numbered file, `Edited calc.py`, then `exit code 0`. To go live, pass JSON schemas for the tools ([§10](10-tool-use.md)). With OpenAI's Responses API the loop is identical, but calls arrive as `function_call` items and results return as `function_call_output`; Gemini uses `functionCall` and `functionResponse` parts. Note the order: the stub runs the tests *before* editing, which confirms the test actually catches the bug. Willison condenses this into two four-word prompts, "First run the tests" and "Use red/green TDD." Claude Code's best-practices page states the general rule: "Without a check it can run, 'looks done' is the only signal available, and you become the verification loop."
 
 ### Git as checkpoint and undo
 
@@ -186,7 +186,7 @@ A **git worktree** is a second working directory, on its own branch, that shares
 
 ### Permissions and sandboxing
 
-A coding agent runs shell commands chosen by a model that reads untrusted text, such as issues, READMEs and dependency source code (P9). Assume it can be talked into anything it is allowed to run. Permission modes and sandboxes are covered in [§20](20-agent-runtime.md) and [§32](32-security-guardrails.md). For coding, the defaults are: explore in plan (read-only) mode, allow-list the test and build commands, confine writes to the repository, and keep credentials and open network access outside the sandbox.
+A coding agent runs shell commands chosen by a model that reads untrusted text: issues, READMEs, dependency source code (P9). Assume it can be talked into running anything it is allowed to run. Permission modes and sandboxes are covered in [§20](20-agent-runtime.md) and [§32](32-security-guardrails.md). The defaults for coding: explore in plan (read-only) mode, allow-list the test and build commands, confine writes to the repository, and keep credentials and open network access outside the sandbox.
 
 ### The practice spectrum: vibe coding to agentic engineering
 
@@ -212,22 +212,22 @@ A spec front-loads intent into context and gives reviewers something to check ag
 
 ### Compound engineering
 
-Kieran Klaassen of Every described "compounding engineering" in Aug 2025 and wrote up **compound engineering** in Dec 2025: "each unit of engineering work should make subsequent units easier—not harder." The loop is Plan → Work → Review → Compound, with "plan and review steps... 80 percent of an engineer's time." The compound step writes each lesson into `CLAUDE.md` or a new reviewer agent, then asks: "Would the system catch this automatically next time?" It is the [§19](19-harness-engineering.md) ratchet with a name and a plugin. The idea is sound, but its parallel reviewer agents cost tokens.
+Kieran Klaassen of Every described "compounding engineering" in Aug 2025 and wrote up **compound engineering** in Dec 2025: "each unit of engineering work should make subsequent units easier—not harder." The loop is Plan → Work → Review → Compound, with "plan and review steps... 80 percent of an engineer's time." The compound step writes each lesson into `CLAUDE.md` or a new reviewer agent, then asks: "Would the system catch this automatically next time?" It is the [§19](19-harness-engineering.md) ratchet with a name and a plugin, whose parallel reviewer agents cost tokens.
 
 ### Harnessable codebases
 
-Agents do best where mistakes are cheap to detect, which Böckeler calls **harnessability** ([§19](19-harness-engineering.md)). That means:
+Agents do best where mistakes are cheap to detect, which Böckeler calls **harnessability** ([§19](19-harness-engineering.md)). The traits that make a codebase harnessable:
 
-- typed languages, where the type checker is a free sensor
+- typed languages, because the type checker is a free sensor
 - fast tests, so the loop turns often
-- clear module boundaries, which structural tests can enforce
+- clear module boundaries that structural tests can enforce
 - error messages that say how to fix the problem
-- "boring" technology, which OpenAI finds "easier for agents to model due to composability, api stability, and representation in the training set"
-- agent legibility: logs, metrics and UI the agent can query, because "anything it can't access in-context while running effectively doesn't exist"
+- "boring" technology, which OpenAI finds "easier for agents to model"
+- logs, metrics and UI the agent can query (agent legibility)
 
 ### Benchmarks: SWE-bench and Terminal-Bench
 
-**SWE-bench** (Oct 2023) has 2,294 tasks from real GitHub issues in 12 Python repositories. The agent gets the repository and the issue text and must produce a patch. Hidden tests grade the patch: some must flip from fail to pass, and regression tests must keep passing. **SWE-bench Verified** (OpenAI, Aug 2024) is a 500-task subset that engineers screened for fair tests and clear issues. Devin's 13.86% on the original SWE-bench in Mar 2024 shows the starting point.
+**SWE-bench** (Oct 2023) has 2,294 tasks from real GitHub issues in 12 Python repositories. The agent gets the repository and the issue text and must produce a patch. Hidden tests grade the patch: some must flip from fail to pass, and regression tests must keep passing. **SWE-bench Verified** (OpenAI, Aug 2024) is a 500-task subset that engineers screened for fair tests and clear issues. For scale, Devin's launch claim in Mar 2024 was 13.86% on a 25% sample of the original set.
 
 On Feb 23, 2026, OpenAI stopped reporting Verified, for three reasons:
 
@@ -235,16 +235,9 @@ On Feb 23, 2026, OpenAI stopped reporting Verified, for three reasons:
 - **Flawed tests.** An audit of 138 often-failed tasks found 59.4% had material problems: tests that "reject functionally correct submissions," or underspecified descriptions.
 - **Contamination.** Frontier models could reproduce gold patches from memory, because the test answers were in their training data.
 
-OpenAI now recommends Scale's SWE-bench Pro, though later audits reportedly questioned its grading too **(⚠ verify)**. **Terminal-Bench** (May 2025) tests broader terminal work in Docker environments with human-written solutions and tests. Version 2.0 (Nov 2025) has 89 tasks. By 4.0 (Aug 2026) it had become a continuously maintained benchmark that drops tasks every frontier model solves. Its integrity notes catalogue reward hacking, including an agent that "curls the solution from the internet and includes it in its AGENTS.md."
+OpenAI now recommends Scale's SWE-bench Pro, though later audits reportedly questioned its grading too **(⚠ verify)**. **Terminal-Bench** (May 2025) covers broader terminal work: each task is a Docker environment with a human-written solution and tests. Version 2.0 (Nov 2025) has 89 tasks. By version 4.0 (Aug 2026) it was maintained continuously, dropping tasks once every frontier model solves them. Its integrity notes record reward hacking, such as an agent that "curls the solution from the internet and includes it in its AGENTS.md."
 
-The lessons:
-
-- A score measures a model-plus-harness pair ([§19](19-harness-engineering.md)).
-- Public tasks leak into training data.
-- Tests can be wrong in both directions.
-- No benchmark measures maintainability or review cost.
-
-Shortlist with benchmarks, then decide with your own tasks ([§26](26-evals.md)).
+The general lessons: a score measures a model-plus-harness pair ([§19](19-harness-engineering.md)), public tasks leak into training data, and tests can be wrong in both directions. No benchmark measures maintainability or review cost. Use benchmarks to shortlist tools, then decide with your own tasks ([§26](26-evals.md)).
 
 ### The human bottleneck
 
@@ -253,19 +246,20 @@ When agents write most of the code, the scarce resource becomes human attention.
 - **Review bandwidth.** You can start ten agents but can't review ten agents' diffs at the old depth, and merging unread code builds **comprehension debt** ([§21](21-loop-engineering.md)).
 - **The orchestration tax.** Briefing agents, switching between their threads, answering their questions and merging their branches is real work that doesn't look like typing.
 
-Self-assessment is unreliable too. METR's 2025 randomized trial found that experienced developers took 19% *longer* with early-2025 tools while believing they were 20% faster. Its Feb 2026 follow-up estimated tasks took about 18% less time for returning participants (confidence interval −38% to +9%). METR called that "only very weak evidence," because many developers now refused to work without AI, and time was hard to measure for those running "multiple AI agents concurrently." Spend human judgment where it buys the most:
+Your own sense of speed is unreliable. METR's 2025 randomized trial found experienced developers took 19% *longer* with early-2025 tools while believing they were 20% faster. A Feb 2026 follow-up estimated about 18% *less* time for returning participants (confidence interval −38% to +9%). METR calls that "only very weak evidence," because many developers now refused to work without AI and time was hard to measure for those running "multiple AI agents concurrently." Spend human judgment where it buys the most:
 
-- defining what "done" means
-- checking that the tests prove it
-- deciding architecture and boundaries
-- reading the diff, especially changes to tests
+- what "done" means, and whether the checks prove it
+- architecture and module boundaries
+- reading the diff, especially any change to tests
 - turning repeated mistakes into rules
+
+When not to delegate: if you can't say how you would check the result, the task isn't ready for an agent. Write the check first, or do the task yourself.
 
 ### Failure modes
 
 - **Plausible-but-wrong code.** Sampled output looks likely (P1, P4), so it reads well and compiles while handling the wrong case. Defend with red/green tests written from the spec and evidence attached to each PR.
 - **Tests weakened to pass.** An agent rewarded for green may edit tests, special-case inputs or exit early ([§21](21-loop-engineering.md)). Defend by denying writes to protected test paths, flagging every test change in review, and keeping held-out tests outside the sandbox.
-- **Dependency hallucination ("slopsquatting").** Across 576,000 generated samples from 16 models, at least 5.2% of packages suggested by commercial models and 21.7% from open-source models did not exist, 205,474 unique fake names (Spracklen et al., 2024). An attacker who registers one gets their code installed by anyone who trusts the suggestion. Defend with lockfiles, a vetted package proxy, a check that each new dependency exists and is established, and sandbox egress limits.
+- **Dependency hallucination ("slopsquatting").** Spracklen et al. (2024) generated 576,000 code samples from 16 models. At least 5.2% of the packages suggested by commercial models, and 21.7% from open-source models, did not exist: 205,474 unique fake names. An attacker who registers one of those names gets their code installed by anyone who trusts the suggestion. Defend with lockfiles, a vetted package proxy, a check that each new dependency is real and established, and sandbox egress limits.
 - **Large unreviewable diffs.** A 3,000-line PR gets skimmed, not reviewed. Defend with size caps in `AGENTS.md` and stacked PRs.
 - **Secrets exposure.** Once the agent reads `.env`, the secret is in the transcript sent to the provider and in logs, and an injected instruction can send it elsewhere: the lethal trifecta of [§32](32-security-guardrails.md). Defend with deny rules such as `Read(./.env)`, credentials held outside the sandbox ([§20](20-agent-runtime.md)), an egress allow-list and pre-commit secret scanning.
 
