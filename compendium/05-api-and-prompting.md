@@ -4,21 +4,21 @@
 
 ## Where this fits
 
-This is the start of the system thread, and of the prompt-engineering era (2020–2023). Part 1 explained the model; [§04](04-reasoning-models.md) ended in 2025, and this section rewinds to 2020. On Jun 11, 2020, OpenAI opened the GPT-3 API in private beta as a "text in, text out" interface: you sent a prompt string and the model continued it. On Mar 1, 2023, the Chat Completions endpoint replaced the single string with a list of role-tagged messages. Anthropic's Messages API followed the same shape, replacing its older Text Completions format of `\n\nHuman:` / `\n\nAssistant:` turns (exact launch date **⚠ verify**). This section shows what actually goes over the wire, why the API forgets everything between calls, and which prompt techniques work, and why.
+This section starts the system thread and the prompt-engineering era (2020–2023). Part 1 explained the model, and [§04](04-reasoning-models.md) ended in 2025; now we rewind to 2020. On Jun 11, 2020, OpenAI opened the GPT-3 API in private beta as a "text in, text out" interface: you sent a prompt string and the model continued it. On Mar 1, 2023, Chat Completions replaced the string with a list of role-tagged messages. Anthropic's Messages API took the same shape, replacing its older Text Completions format of `\n\nHuman:` / `\n\nAssistant:` turns (launch date **⚠ verify**). This section covers what goes over the wire, why the API forgets everything between calls, and which prompt techniques work, and why.
 
 ## Why this exists
 
-**You don't run the model; a vendor does.** Frontier models need clusters of GPUs (P10), so you reach them through an HTTP API. The API is the contract between your code and a stateless next-token function (P1, P2).
+**You don't run the model; a vendor does.** Frontier models need GPU clusters (P10), so you reach them over HTTP. The API is the contract between your code and a stateless next-token function (P1, P2).
 
-**Underneath every API there is one token sequence.** The model never sees "messages" or "roles". The server renders your request into one sequence using a chat template, with special tokens marking who said what, and the model predicts what comes next. Post-training ([§02](02-how-llms-work.md)) taught the model that template, which is why vendors expose structured messages rather than raw strings: they control the rendering, and the model behaves best in the format it was trained on.
+**Underneath every API is one token sequence.** The model never sees "messages" or "roles". The server renders your request into a single sequence using a *chat template*, with special tokens marking who said what, and the model predicts what comes next. Post-training ([§02](02-how-llms-work.md)) taught the model that template. That's why vendors expose structured messages instead of raw strings: they control the rendering, and the model behaves best in the format it was trained on.
 
-**In the GPT-3 era, the prompt was the whole program.** There were no tools, no structured outputs and no reasoning models. The only control surface was the text you put in front of the model. *Prompt engineering*, the craft of choosing that text, existed because it was the only lever.
+**In the GPT-3 era, the prompt was the whole program.** With no tools, structured outputs or reasoning models, the only lever was the text in front of the model. *Prompt engineering*, the craft of choosing that text, grew up around that lever.
 
 ## How it works (under the hood)
 
 ### The raw request and response
 
-One HTTPS `POST` to `https://api.anthropic.com/v1/messages` **(GA)**. Three headers: your API key, a pinned API version (`anthropic-version: 2023-06-01`) and the content type. The JSON body names the model, sets an output cap and carries the conversation.
+The whole request is one HTTPS `POST` to `https://api.anthropic.com/v1/messages` **(GA)**. It carries three headers (your API key, a pinned API version and the content type) and a JSON body that names the model, caps the output and carries the conversation.
 
 ```python
 import json
@@ -63,23 +63,18 @@ The response (values illustrative):
   ],
   "stop_reason": "end_turn",
   "stop_sequence": null,
-  "usage": {
-    "input_tokens": 31,
-    "cache_creation_input_tokens": 0,
-    "cache_read_input_tokens": 0,
-    "output_tokens": 96,
-    "output_tokens_details": {"thinking_tokens": 52}
-  }
+  "usage": {"input_tokens": 31, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
+            "output_tokens": 96, "output_tokens_details": {"thinking_tokens": 52}}
 }
 ```
 
-`content` is a *list of typed blocks*, not a string. Current Claude models think adaptively by default ([§04](04-reasoning-models.md)), so a `thinking` block, empty unless you ask for summaries, may come first. Always select blocks by `type`.
+`content` is a *list of typed blocks*, not a string. Current Claude models think adaptively by default (§04), so a `thinking` block may come first, empty unless you ask for summaries. Always select blocks by `type`.
 
 ### Roles and the system prompt
 
-- **`messages`** holds the conversation as `user` and `assistant` turns. The first must be `user`, and consecutive turns with the same role are merged. `content` is a string or a list of blocks: text, images, documents, tool calls and results ([§10](10-tool-use.md)), thinking.
-- **`system`** is a top-level field, not a message. It carries the developer's instructions: role, rules, output format, background. Post-training gives it more weight than user text, which is why it's where standing instructions go. Newer models (Claude Opus 5.5 and Claude Sonnet 5.5, among others) also accept `role: "system"` messages *inside* `messages` **(GA)**, for operator instructions that arrive mid-conversation.
-- **Everything becomes one sequence.** The server renders tools, then the system prompt, then the messages, and the model continues from the end:
+- **`messages`** holds `user` and `assistant` turns. The first must be `user`, and consecutive same-role turns are merged. `content` is a string or a list of blocks: text, images, documents, tool calls and results ([§10](10-tool-use.md)), and thinking.
+- **`system`** is a top-level field, not a message. It holds the developer's standing instructions: role, rules, format, background. Post-training gives it more weight than user text. Newer models, including Claude Opus 5.5 and Claude Sonnet 5.5, also accept `role: "system"` messages *inside* `messages` **(GA)** for operator instructions that arrive mid-conversation.
+- **Everything is rendered into one sequence,** in the order tools, then system, then messages, and the model continues from the end:
 
 ```text
 what you send                            what the model sees
@@ -89,11 +84,11 @@ system:   "..."         ├── render ──▶   [tools][system][user][assis
 messages: [u, a, u, …]  ┘                                                          next token
 ```
 
-That has a security consequence. The system prompt is just more tokens in the same channel as user text and retrieved documents. Text in any of them can act as an instruction (P9). The system prompt sets priorities; it is not a security boundary ([§32](32-security-guardrails.md)).
+So the system prompt is just more tokens in the same channel as user text and retrieved documents, and text in any of them can act as an instruction (P9). The system prompt sets priorities; it isn't a security boundary ([§32](32-security-guardrails.md)).
 
 ### Statelessness (P2): you resend everything
 
-The API keeps nothing between calls. In Anthropic's words, the Messages API "is stateless, which means that you always send the full conversational history". Memory in a chat app is an illusion your code maintains:
+The API keeps nothing between calls. Anthropic's docs put it plainly: the Messages API "is stateless, which means that you always send the full conversational history". Any memory in a chat app is maintained by your code:
 
 ```python
 import os
@@ -123,44 +118,39 @@ history.clear()  # "forgetting" just means not sending it
 print(ask("Which warehouse did I say I use?"))  # the model now cannot know
 ```
 
-The printed `input_tokens` climbs every turn. The consequences:
+The printed `input_tokens` climbs with every turn. The consequences:
 
-- **Cost grows with conversation length.** Turn k resends all k−1 earlier turns, so total input over n turns grows roughly with n². Prompt caching (below) is what keeps this affordable.
-- **The context window is a hard wall (P3).** Eventually history must be dropped, summarized or compacted ([§16](16-context-engineering.md)).
-- **You own the history.** You can insert synthetic turns (few-shot examples written as fake past exchanges) or trim old ones. On current models, though, editing earlier turns invalidates stored thinking blocks, so append-only is the safe default (§04).
+- **Cost grows with length.** Turn k resends all earlier turns, so total input over n turns grows roughly with n². Caching (below) keeps this affordable.
+- **The context window is a hard wall (P3).** Eventually history has to be trimmed, summarized or compacted ([§16](16-context-engineering.md)).
+- **You own the history.** You can insert synthetic turns, such as few-shot examples written as past exchanges. On current models, editing *earlier* turns invalidates stored thinking blocks, so append-only is the safe default (§04).
 
-A data-engineering analogy: each call recomputes a view from the full event log, with no materialization. Prompt caching is the materialization.
-
-Some APIs offer server-side state. OpenAI Responses has `store` and `previous_response_id`, Google's Interactions API has `previous_interaction_id`, and Anthropic offers sessions in Managed Agents ([§20](20-agent-runtime.md)). The model underneath is still stateless: the server replays the history for you. OpenAI's docs state that the replayed tokens are still billed as input.
+In data-engineering terms, each call recomputes a view from the full event log with no materialization. Caching is the materialization. Server-side state options exist: OpenAI's `previous_response_id`, Gemini's `previous_interaction_id`, and Anthropic's Managed Agents sessions ([§20](20-agent-runtime.md)). They only move the replay to the vendor. OpenAI's docs state that replayed tokens are still billed as input.
 
 ### Parameters
 
-- **`max_tokens`** (required): a hard cap on generated tokens, *including thinking*. The model usually stops earlier. If it hits the cap, `stop_reason` is `"max_tokens"` and the text ends mid-thought. The Python SDK requires streaming above 21,333 tokens to avoid HTTP timeouts.
-- **`temperature`**: the classic randomness dial. The model's raw scores (*logits*) are divided by T before the softmax turns them into probabilities. T < 1 sharpens the distribution toward the top token; T > 1 flattens it. Even T = 0 isn't fully deterministic, because serving-side numerics vary (P4). **Status, Oct 2026:** Anthropic has deprecated it. Models released after Claude Opus 4.6, which includes every current model ID, reject any value other than 1.0 with a 400 error, and they reject non-default `top_p` and `top_k` too. Google's Gemini 4 and 3.6+ models ignore custom sampling values and return deprecation warnings. Neither vendor's docs give a reason. A plausible reading is that RL-trained reasoning models are tuned at their native sampling settings, and effort ([§04](04-reasoning-models.md)) is now the dial you're expected to turn.
-- **`stop_sequences`**: strings that end generation when the model produces them. `stop_reason` becomes `"stop_sequence"` and the `stop_sequence` field names the match. They were classically used to cut output at a delimiter such as `</answer>`.
-- **`output_config.effort`** and **`thinking`**: the reasoning controls from §04.
+- **`max_tokens`** (required) is a hard cap on generated tokens, *thinking included*. When the model hits it, `stop_reason` is `"max_tokens"` and the text ends mid-thought. The Python SDK insists on streaming above 21,333 tokens to avoid HTTP timeouts.
+- **`temperature`** divides the model's raw scores (*logits*) by T before the softmax turns them into probabilities. T < 1 sharpens the distribution toward the top token; T > 1 flattens it. Even T = 0 isn't fully deterministic (P4). **Status, Oct 2026:** Anthropic has deprecated it. Models released after Claude Opus 4.6, which includes every current model ID, reject any value except 1.0 with a 400, and reject non-default `top_p` and `top_k` too. Google's Gemini 4 and 3.6+ ignore custom sampling values and return deprecation warnings. Neither vendor's docs give a reason. A plausible one is that RL-trained models are tuned at their native sampling settings, leaving effort (§04) as the dial you're expected to turn.
+- **`stop_sequences`** are strings that end generation when produced. `stop_reason` becomes `"stop_sequence"` and the `stop_sequence` field names the match, for example to cut output at `</answer>`.
 
-### `stop_reason`: why the model stopped
+### `stop_reason`, usage and token counts
 
-Check this field before you use `content`. A refusal is a normal HTTP 200.
+Check `stop_reason` before you use `content`. A refusal is a normal HTTP 200.
 
 | `stop_reason` | Meaning | What your code should do |
 |---|---|---|
 | `end_turn` | Natural stopping point | Use the output |
 | `max_tokens` | Hit your cap | Treat as truncated: raise the cap, lower effort, or continue |
-| `stop_sequence` | Emitted one of your stop strings | Expected; parse up to the stop |
+| `stop_sequence` | Emitted one of your stop strings | Parse up to the stop |
 | `tool_use` | Model wants a tool run | Execute it and send the result ([§10](10-tool-use.md)) |
 | `pause_turn` | Long server-side turn paused | Send the response back as-is to continue |
-| `refusal` | Declined by safety classifiers | Read `stop_details.category`; don't treat as an answer |
-| `model_context_window_exceeded` | Ran out of context window | Trim or compact the history |
+| `refusal` | Declined by safety classifiers | Read `stop_details.category`; it isn't an answer |
+| `model_context_window_exceeded` | Ran out of context | Trim or compact the history |
 
-### Usage and token counts
-
-Every response reports `usage`. `input_tokens` covers uncached input. `cache_creation_input_tokens` and `cache_read_input_tokens` cover cached input, and the true total input is the sum of all three. `output_tokens` includes thinking, broken out in `output_tokens_details.thinking_tokens`. Counts won't match the visible text exactly, because the server adds formatting tokens. To estimate before sending, `POST /v1/messages/count_tokens` takes the same body. This is your cost meter. With `claude-sonnet-5-5` at $2 per million input tokens and $10 per million output tokens (Oct 2026), a 20,000-token history plus a 500-token answer costs $0.045 per turn before caching.
+`usage` is your cost meter. `input_tokens` counts uncached input, `cache_creation_input_tokens` and `cache_read_input_tokens` count cached input, and the true input total is the sum of all three. `output_tokens` includes thinking (`output_tokens_details.thinking_tokens`). The counts won't match the visible text exactly, because the server adds formatting tokens. `POST /v1/messages/count_tokens` estimates a request before you send it. As a worked example, at `claude-sonnet-5-5`'s $2 / $10 per million input / output tokens (Oct 2026), a 20,000-token history plus a 500-token answer costs $0.045 per turn before caching.
 
 ### Streaming (SSE)
 
-Without streaming, you wait for the whole response. Streaming sends tokens as they are decoded, so the user sees the first words after the time-to-first-token from [§03](03-inference.md) rather than after the whole generation. Set `"stream": true` and the response becomes *server-sent events* (SSE), a long-lived HTTP response made of named events:
+Streaming sends tokens as they are decoded, so the user sees words after the time-to-first-token from [§03](03-inference.md) rather than after the whole generation. Set `"stream": true` and the response becomes *server-sent events* (SSE): one long-lived HTTP response made of named events.
 
 ```text
 event: message_start        data: {"type":"message_start","message":{"id":"msg_...","content":[],"usage":{...}}}
@@ -172,7 +162,7 @@ event: message_delta        data: {"type":"message_delta","delta":{"stop_reason"
 event: message_stop         data: {"type":"message_stop"}
 ```
 
-Delta types are `text_delta`, `input_json_delta` (tool arguments), `thinking_delta` and `signature_delta`. Usage counts in `message_delta` are cumulative. An `error` event (for example `overloaded_error`) can arrive *after* the HTTP 200, so streaming code must handle errors mid-stream. Since prefill is gone (below), the way to recover a cut-off stream on current models is a new user message: "Your previous response was interrupted and ended with [...]. Continue from where you left off."
+The delta types are `text_delta`, `input_json_delta` (tool arguments), `thinking_delta` and `signature_delta`. Usage counts in `message_delta` are cumulative. An `error` event such as `overloaded_error` can arrive *after* the HTTP 200, so streaming code must handle mid-stream failure. On current models you recover a cut-off stream with a new user message ("Your previous response was interrupted and ended with [...]. Continue from where you left off."), not with prefill.
 
 ```python
 import os
@@ -200,93 +190,80 @@ print(len(final.content), "content blocks")
 
 ### Prompt engineering techniques, and why each works
 
-Every technique below works the same way: it changes the tokens the next-token distribution is conditioned on (P1), so that probability mass concentrates on the output you want.
+Every technique changes the tokens the next-token distribution is conditioned on (P1), so that probability mass concentrates on the output you want.
 
-**Clear, specific instructions.** A vague request ("summarize this") is consistent with many tasks: different lengths, audiences and emphases. The output distribution spreads across all of them. Explicit constraints prune those readings, and instruction tuning ([§02](02-how-llms-work.md)) trained the model to follow them. Giving the *reason* for a constraint helps the model generalize. Anthropic's example is "this will be read aloud by text-to-speech, so never use ellipses" rather than a bare "NEVER use ellipses". Their test: would a capable new colleague with no context understand the prompt?
+**Clear, specific instructions.** "Summarize this" is consistent with many tasks of different lengths, audiences and emphases, so the output distribution spreads across all of them. Explicit constraints prune those readings, and instruction tuning ([§02](02-how-llms-work.md)) trained the model to obey them. Giving the *reason* behind a constraint lets the model generalize. Anthropic's example: "this will be read aloud by text-to-speech, so never use ellipses" works better than "NEVER use ellipses". A good test is whether a capable new colleague with no context could follow the prompt.
 
-**Examples (few-shot).** *Few-shot prompting* means putting worked input→output examples in the prompt. The GPT-3 paper ("Language Models are Few-Shot Learners") showed models learn tasks *in context*, from examples, without any weight update. One proposed mechanism is the *induction head* (Olsson et al. 2022), an attention circuit that finds an earlier occurrence of the current token and copies what followed it. That is pattern continuation at the circuit level. The consequence is that models copy *everything* about your examples, including length, phrasing and label balance. Use 3–5 diverse examples, wrapped in `<example>` tags so they read as examples rather than instructions.
+**Examples (few-shot).** *Few-shot prompting* puts worked input→output examples in the prompt. The GPT-3 paper ("Language Models are Few-Shot Learners") showed that models learn tasks *in context*, with no weight update. One proposed mechanism is the *induction head* (Olsson et al. 2022), an attention circuit that finds an earlier occurrence of the current token and copies what followed it. The consequence is that models copy *everything* about your examples: length, phrasing, label balance. Use 3–5 diverse examples in `<example>` tags so they read as examples, not instructions.
 
-**Structure with XML tags.** Wrapping parts of a prompt in tags (`<instructions>`, `<document>`, `<data>`) gives the model unambiguous boundaries between instructions and material. You can then refer to sections by name ("using only the text in `<contract>`"), and the distinctive tag tokens are easy for attention to match. For long inputs, put documents first and the question last. Anthropic reports that this ordering improved quality by up to 30% in its tests. Tags organize the prompt; they don't stop injected instructions inside the data (P9).
+**Structure with XML tags.** Tags such as `<instructions>`, `<document>` and `<data>` give unambiguous boundaries between instructions and material. You can refer to sections by name ("using only `<contract>`"), and the distinctive tag tokens are easy for attention to match. For long inputs, put documents first and the question last; Anthropic reports up to 30% better quality from that ordering in its tests. Tags organize the prompt, but they don't stop instructions injected inside the data (P9).
 
-**Role prompting.** "You are a senior data engineer reviewing a migration plan" shifts the distribution toward text that kind of author would write: vocabulary, rigor, what gets flagged. It works best in the system prompt. A role adds no knowledge (P5), and superlatives ("world-class expert") add little beyond specific instructions.
+**Role prompting.** "You are a senior data engineer reviewing a migration plan" shifts the distribution toward what that author would write: vocabulary, rigor, what gets flagged. It goes in the system prompt. It adds no knowledge (P5), and superlatives ("world-class expert") add little beyond specific instructions.
 
-**Chain of thought.** Asking the model to work step by step buys extra serial compute and a scratchpad, the mechanism in [§04](04-reasoning-models.md). It was *the* reasoning technique of 2022–2023. On current reasoning models it's built in and controlled with effort. Asking the model to write its internal reasoning into the visible answer duplicates that work, and on the newest Claude models it can trigger a `reasoning_extraction` refusal. Ask for an explanation *for the reader* if you need one, and read thinking blocks for the model's reasoning.
+**Chain of thought.** Asking the model to work step by step buys extra serial compute and a scratchpad, the mechanism in §04. It was *the* reasoning technique of 2022–2023. On current models it's built in and governed by effort. Asking the model to write its internal reasoning into the answer duplicates that work, and on the newest Claude models it can trigger a `reasoning_extraction` refusal. If you need an explanation, ask for one written *for the reader*.
 
-**Self-consistency.** Sample several independent answers and take the majority (Wang et al. 2022, +17.9% on GSM8K over plain CoT). It works because wrong reasoning paths scatter across different answers while right ones converge. It costs N×, needs answers you can compare, and the agreement rate doubles as a confidence score. It is parallel test-time compute (§04):
+**Self-consistency.** Sample several independent answers and take the majority. Wang et al. (2022) reported +17.9% on GSM8K over plain CoT. It works because wrong reasoning paths scatter across different answers while right ones converge. It costs N×, needs answers you can compare, and the agreement rate is a free confidence score:
 
 ```text
-answers = [extract_final_answer(call_model(prompt)) for _ in range(N)]  # run in parallel
-best    = most_common(answers)
-confidence = answers.count(best) / N        # low agreement → escalate to a human or a stronger model
+answers    = [extract_final_answer(call_model(prompt)) for _ in range(N)]   # run in parallel
+best       = most_common(answers)
+confidence = answers.count(best) / N   # low agreement → escalate to a human or a stronger model
 ```
 
-**Prompt templates.** A *template* separates fixed instructions from variable slots: `SYSTEM + "<ticket>{ticket_text}</ticket>"`. This is engineering hygiene, not model mechanics. Templates can be version-controlled and evaluated per version ([§26](26-evals.md)), much like a dbt model with Jinja variables. Put the stable part first and the variables last, which is also what caching rewards. The variable is untrusted data in the instruction channel, so tag it and never paste it unmarked into the instructions (P9).
+**Prompt templates.** A *template* separates fixed instructions from variable slots, as in `SYSTEM + "<ticket>{ticket_text}</ticket>"`. Like a dbt model with Jinja variables, it can be version-controlled and evaluated per version ([§26](26-evals.md)). Stable text first and variables last is also what caching rewards. The variable is untrusted data entering the instruction channel, so always tag it (P9).
 
 ### Prefill: what it was, and its status
 
-*Prefill* meant ending `messages` with a partial `assistant` turn, such as `{"role": "assistant", "content": "{"}`, so the model continued from your text. Because you wrote the first tokens of the output, everything after was conditioned on them (P1). It was used to force JSON, skip preambles ("Here is the summary:"), steer past bad refusals, keep a persona, and resume cut-off responses.
+*Prefill* meant ending `messages` with a partial `assistant` turn, such as `{"role": "assistant", "content": "{"}`. You wrote the first output tokens, and everything after was conditioned on them (P1). It was used to force JSON, skip preambles, steer past bad refusals and resume cut-off responses.
 
-**Status, Oct 2026:** Claude 4.6 and later models return a 400 error for a prefilled final assistant turn. Earlier models already disallowed it while thinking was on, presumably because a prefilled answer would skip the thinking that is meant to come first. Assistant turns *earlier* in the history, such as few-shot fake exchanges, are still fine. The replacements: structured outputs for format ([§06](06-structured-outputs.md)), system-prompt instructions for preambles, and a user message for continuations. Prefill is a clean example of the bitter lesson (P12): a workaround for weak instruction-following that became dead weight.
+**Status, Oct 2026:** Claude 4.6 and later models return a 400 error for a prefilled final assistant turn. Earlier models already disallowed it while thinking was on, presumably because a prefilled answer would skip the thinking meant to come first. Assistant turns *earlier* in the history are still fine. The replacements are structured outputs for format ([§06](06-structured-outputs.md)), system-prompt instructions for preambles and a user message for continuations. Prefill is a clean case of the bitter lesson (P12): a workaround for weak instruction-following that became dead weight.
 
 ### Prompt caching, briefly
 
-Statelessness means resending long, identical prefixes: system prompts, tool definitions, documents, history. *Prompt caching* **(GA)** stores the computed attention state, the KV cache from §03, for a prefix. A later request that starts with the byte-identical prefix skips recomputing it. Mark a breakpoint with `cache_control` on a block (up to four), or set it once at the top level:
+Statelessness means resending long identical prefixes: system prompts, tool definitions, documents, history. *Prompt caching* **(GA)** stores the attention state for a prefix (the KV cache from §03), so a later request starting with the byte-identical prefix skips recomputing it. Mark up to four breakpoints with `cache_control`, or set it once at the top level:
 
 ```json
 {
   "model": "claude-sonnet-5-5",
   "max_tokens": 1024,
-  "system": [
-    {"type": "text", "text": "<5,000 tokens of stable instructions and schema docs>",
-     "cache_control": {"type": "ephemeral"}}
-  ],
+  "system": [{"type": "text", "text": "<5,000 tokens of stable instructions and schema docs>",
+              "cache_control": {"type": "ephemeral"}}],
   "messages": [{"role": "user", "content": "Which tables hold PII?"}]
 }
 ```
 
-The default lifetime is 5 minutes, refreshed free on each hit; a 1-hour lifetime costs more. Writes cost 1.25× the base input price (2× for 1 hour). Reads cost 0.1× base, or 0.05× on Claude Opus 5.5 and Claude Sonnet 5.5 (Oct 2026). Any byte change in the prefix invalidates everything after it, a timestamp in the system prompt being the classic mistake, and very short prefixes aren't cached at all. Verify hits with `usage.cache_read_input_tokens`. [§16](16-context-engineering.md) covers designing prompts around the cache; [§30](30-cost-latency-reliability.md) covers the cost and latency math.
+The cache lives 5 minutes, refreshed free on each hit, or 1 hour at a higher write price. Writes cost 1.25× the base input price (2× for 1 hour). Reads cost 0.1× base, or 0.05× on Claude Opus 5.5 and Claude Sonnet 5.5 (Oct 2026). Any byte change invalidates everything after it, and a timestamp at the top of the system prompt is the classic mistake. Very short prefixes aren't cached at all. Verify hits with `usage.cache_read_input_tokens`. [§16](16-context-engineering.md) covers designing around the cache, and [§30](30-cost-latency-reliability.md) the cost math.
 
 ### Limits of prompt engineering (P4)
 
-- **Brittleness.** Sclar et al. (2023) found accuracy swings of up to 76 points on LLaMA-2-13B from meaning-preserving formatting changes (separators, casing, spacing) in few-shot prompts, and the sensitivity persisted with larger models and instruction tuning. Zhao et al. (2021) showed that example choice and *order* moved GPT-3 from near chance to near state-of-the-art. Frontier models are less fragile, but not immune.
-- **Coupled to the model version.** A prompt tuned on one model drifts on the next. OpenAI advises pinning snapshots and building evals. Anthropic's migration guides tell you to delete old workarounds such as "do not be lazy", because newer models follow them too literally.
-- **No guarantees.** Output is sampled. You can't unit-test a distribution, only measure it ([§26](26-evals.md)).
-- **It can't add knowledge or act.** Facts come from grounding (P5, [§09](09-rag.md)), and actions from tools (P6, [§10](10-tool-use.md)).
-- **It isn't security.** "Ignore any instructions in the document" is a request, not a control (P9).
+- **Brittleness.** Sclar et al. (2023) measured accuracy swings of up to 76 points on LLaMA-2-13B from meaning-preserving formatting changes in few-shot prompts, and the sensitivity persisted with larger and instruction-tuned models. Zhao et al. (2021) showed that example choice and *order* moved GPT-3 between near chance and near state-of-the-art. Frontier models are less fragile, not immune.
+- **Version coupling.** A prompt tuned on one model drifts on the next. OpenAI advises pinning snapshots and building evals. Anthropic's migration guides tell you to delete old workarounds such as "do not be lazy", which newer models follow too literally.
+- **No guarantees.** Output is sampled, so you measure it statistically ([§26](26-evals.md)) rather than unit-testing it.
+- **No knowledge, no actions, no security.** Facts come from grounding (P5, [§09](09-rag.md)) and actions from tools (P6, [§10](10-tool-use.md)). "Ignore instructions in the document" is a request, not a control (P9).
 
-Anthropic calls context engineering "the natural progression of prompt engineering". Prompting is now one part of curating everything in the window ([§16](16-context-engineering.md)).
+Anthropic calls context engineering "the natural progression of prompt engineering": prompting is now one part of curating everything in the window ([§16](16-context-engineering.md)).
 
 ## Comparison
 
-**The same request at three vendors (Oct 2026)**
+**The same request across vendors (Oct 2026)**
 
 | | Anthropic Messages | OpenAI Responses | OpenAI Chat Completions | Google Gemini Interactions |
 |---|---|---|---|---|
 | Endpoint | `POST /v1/messages` | `POST /v1/responses` | `POST /v1/chat/completions` | `POST /v1beta/interactions` |
-| Status | **(GA)** primary | **(GA)** recommended for new projects | Supported, older | **(GA)** since Jun 2026, recommended; `generateContent` is legacy but supported |
+| Status | **(GA)** primary | **(GA)** recommended for new projects | Supported, older | **(GA)** since Jun 2026; `generateContent` is legacy but supported |
 | Developer instructions | Top-level `system` (+ mid-conversation `system` messages) | `instructions`, or a `developer` role message | `system` / `developer` role message | `system_instruction` |
 | Input | `messages`: `user`/`assistant` turns of typed blocks | `input`: string or list of items | `messages` list | `input` (`generateContent`: `contents` of `user`/`model` turns with `parts`) |
 | Output | `content`: typed blocks (`thinking`, `text`, `tool_use`) | `output`: items (`reasoning`, `message`, `function_call`); `output_text` helper | `choices[].message` | `steps` (thoughts, model output); `output_text` helper |
-| Conversation state | Stateless; resend history | Optional server state (`store`, `previous_response_id`); replayed tokens still billed | Stateless | Server-side by default (`previous_interaction_id`); `store=false` for stateless |
+| Conversation state | Stateless; resend history | Optional server state (`store`, `previous_response_id`); replayed tokens billed | Stateless | Server-side by default (`previous_interaction_id`); `store=false` for stateless |
 | Output cap | `max_tokens` (required) | `max_output_tokens` | `max_completion_tokens` (`max_tokens` deprecated) | `generation_config.max_output_tokens` |
 | Why it stopped | `stop_reason` | `status` + `incomplete_details` | `finish_reason` | `status` |
 | Streaming | SSE named events (`message_start` … `message_stop`) | SSE semantic events (`response.output_text.delta`, …) | SSE `data:` chunks | SSE |
 
-**Prompt techniques at a glance**
-
-| Technique | Mechanism | Strength | Weakness | When not to use |
-|---|---|---|---|---|
-| Specific instructions | Prunes plausible readings; instruction tuning obeys them | Cheapest, biggest win | Over-literal on newest models | Never skip; but cut stale rules |
-| Few-shot examples | In-context pattern continuation | Best for format and tone | Copies surface features; costs tokens | When structured outputs can enforce the format |
-| XML tags | Explicit boundaries between instructions and data | Unambiguous long prompts | No security value | Tiny one-line prompts |
-| Role prompting | Shifts toward an author's distribution | Sets tone and focus cheaply | Adds no knowledge | As a substitute for specifics |
-| Chain of thought (prompted) | Extra tokens = extra serial compute | Helps non-reasoning models | Redundant or refused on reasoning models | On current thinking models; use effort |
-| Self-consistency | Errors scatter, right answers converge | Accuracy plus a confidence score | N× cost; needs comparable answers | Long free-form outputs |
-| Templates | Separate fixed text from variables | Versioning, evals, caching | Variables are an injection path | One-off exploration |
+The shapes differ, but the substance is the same everywhere: a model ID, instructions, the conversation, an output cap and a reasoning dial go in; typed output and a stop signal come out. Only the convenience of server-side history varies, and it doesn't make the model itself stateful.
 
 ## What it didn't solve
 
-The model's output is free-form text. Code that needs a field, a label or a JSON object has to parse prose, and a sampled model (P4) sometimes adds a preamble, drops a field or renames a key. Asking nicely for JSON and the old prefill trick reduced failures but never eliminated them, and prefill is now gone. Software needs output that is guaranteed to match a schema.
+The model's output is free-form text. Code that needs a field, a label or a JSON object has to parse prose, and a sampled model (P4) sometimes adds a preamble, drops a field or renames a key. Asking nicely for JSON, and the old prefill trick, reduced failures but never eliminated them. Software needs output that is guaranteed to match a schema.
 
 → Next: [§06 Structured Outputs](06-structured-outputs.md)
 
@@ -294,42 +271,42 @@ The model's output is free-form text. Code that needs a field, a label or a JSON
 
 **Q: Why does a chatbot built on the Messages API remember your name from three turns ago, if the model is stateless?**
 
-Your code resends the whole conversation on every call, so the earlier turn is literally in the context window again (P2). The consequence is that cost and latency grow with conversation length, and the context window eventually forces you to trim or summarize. Server-side state options (Responses, Interactions) only move the replay to the vendor; you still pay for those input tokens.
+Your code resends the whole conversation on every call, so the earlier turn is literally back in the context window (P2). As a result, cost and latency grow with conversation length, and the context window eventually forces trimming or summarizing. Server-side state options only move the replay to the vendor; you still pay for those input tokens.
 
 **Q: What would happen if you put the current timestamp at the top of a long cached system prompt?**
 
-Caching is an exact prefix match, so a prefix that changes every request never matches. Every call would pay cache-write prices (1.25× base) instead of reads (0.1× or less), making it more expensive than no caching. Put volatile values after the last cache breakpoint, or in the user turn.
+Caching is an exact prefix match, so a prefix that changes on every request never hits. Every call would pay the cache-write price (1.25× base) instead of the read price (0.1× or less), which is worse than not caching at all. Put volatile values after the last cache breakpoint, or in the user turn.
 
 **Q: Why did Anthropic remove assistant prefill, and what replaces it?**
 
-Prefill worked by writing the first output tokens yourself, which conditioned everything after (P1). It conflicts with thinking, which is meant to come before the answer, and newer models follow instructions well enough that the trick became dead weight (P12); Claude 4.6 and later return a 400 for it. Use structured outputs for format, system-prompt instructions for preambles, and a user message for continuations.
+Prefill worked by writing the first output tokens yourself (P1). That clashes with thinking, which is meant to come before the answer, and newer models follow instructions well enough that the trick became dead weight (P12). Claude 4.6 and later return a 400 for it. Use structured outputs for format, system-prompt instructions for preambles, and a user message for continuations.
 
 **Q: Temperature vs effort: which dial controls what on a current Claude model?**
 
-Temperature rescales the logits before sampling, trading determinism for diversity. On current Claude models it's deprecated, and any value other than 1.0 is rejected. Effort controls how much work the model puts into the response: how readily and deeply it thinks, and how many tool calls it makes. To reduce variability now, use structured outputs and evals rather than temperature.
+Temperature rescales logits before sampling, trading determinism for diversity; on current Claude models it's deprecated and anything but 1.0 is rejected. Effort controls how much work goes into a response: how readily and deeply the model thinks and how many tool calls it makes. To reduce variability now, use structured outputs and evals rather than temperature.
 
 **Q: Why do few-shot examples sometimes make output worse?**
 
-The model continues patterns from everything in its context, so it copies your examples' length, phrasing and label balance along with the intended format. Three short positive examples teach "be short and positive". Make examples diverse, wrap them in tags, and drop them once a schema or structured output can enforce the format.
+The model continues every pattern in its context, so it copies your examples' length, phrasing and label balance along with the format you intended. Three short positive examples teach "be short and positive". Make examples diverse and tagged, and drop them once structured outputs can enforce the format.
 
 **Q: What would happen if your streaming code assumed an HTTP 200 meant the response would complete?**
 
-SSE streams can carry an `error` event, such as `overloaded_error`, after the 200 status and partway through the text. Code that ignores it would show a truncated answer as if it were complete, or crash on a missing `message_stop`. Handle error events and check the final `stop_reason`, and on current models resume through a user message rather than prefill.
+An SSE stream can carry an `error` event, such as `overloaded_error`, after the 200 and partway through the text. Code that ignores it would show a truncated answer as if it were complete, or crash waiting for `message_stop`. Handle error events, check the final `stop_reason`, and resume through a user message rather than prefill.
 
 **Q: Why are XML tags in a prompt not a defense against prompt injection?**
 
-Tags help the model tell instructions from data, but every token, inside tags or not, flows through the same attention channel, and a persuasive instruction inside a `<document>` can still be followed (P9). Relying on tags would give false confidence. Real defenses are least privilege on tools and keeping a human in the loop for risky actions ([§32](32-security-guardrails.md)).
+Tags help the model tell instructions from data, but every token, tagged or not, flows through the same attention channel, and a persuasive instruction inside a `<document>` can still be followed (P9). Treating tags as a defense gives false confidence. Real defenses are least privilege on tools and human approval for risky actions ([§32](32-security-guardrails.md)).
 
 ## Takeaways
 
-- An LLM API is one stateless `POST`: model, `max_tokens`, `system`, and the full `messages` history every time (P2).
+- An LLM API call is one stateless `POST`: model, `max_tokens`, `system`, and the full `messages` history every time (P2).
 - Roles are rendered into a single token sequence; the system prompt sets priority, not security (P9).
-- Read `content` by block type and check `stop_reason` before trusting the output.
-- `usage` is your cost meter; prompt caching makes resending long prefixes affordable.
-- Streaming is SSE: `message_start`, block start/delta/stop, `message_delta`, `message_stop`; errors can arrive after the 200.
+- Read `content` by block type and check `stop_reason` before trusting the output; `usage` is your cost meter.
+- Streaming is SSE, and errors can arrive after the HTTP 200.
 - Every prompt technique works by conditioning the next-token distribution (P1); know the mechanism and you know when it fails.
 - On current Claude models, temperature, top-p/top-k and prefill are gone; effort and structured outputs replace them.
-- Prompts are brittle and version-coupled, so measure them with evals rather than trusting them (P4).
+- Prompt caching makes resending long prefixes affordable, as long as the prefix stays byte-identical.
+- Prompts are brittle and version-coupled, so measure them with evals (P4).
 
 ## Sources
 
@@ -339,7 +316,6 @@ Tags help the model tell instructions from data, but every token, inside tags or
 - Anthropic docs, Messages API reference: https://platform.claude.com/docs/en/api/messages
 - Anthropic docs, Using the Messages API: https://platform.claude.com/docs/en/build-with-claude/working-with-messages
 - Anthropic docs, Streaming: https://platform.claude.com/docs/en/build-with-claude/streaming
-- Anthropic docs, Versions: https://platform.claude.com/docs/en/api/versioning
 - Anthropic docs, Prompt caching: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
 - Anthropic docs, Pricing: https://platform.claude.com/docs/en/about-claude/pricing
 - Anthropic docs, Thinking (sampling and prefill limits): https://platform.claude.com/docs/en/build-with-claude/thinking
@@ -347,10 +323,9 @@ Tags help the model tell instructions from data, but every token, inside tags or
 - Anthropic, "Effective context engineering for AI agents" (Sep 29, 2025): https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
 - OpenAI docs, Migrate to the Responses API: https://developers.openai.com/api/docs/guides/migrate-to-responses
 - OpenAI docs, Conversation state: https://developers.openai.com/api/docs/guides/conversation-state
-- OpenAI docs, Text generation and prompting: https://developers.openai.com/api/docs/guides/text
+- OpenAI docs, Text generation: https://developers.openai.com/api/docs/guides/text
 - Google, Gemini Interactions API: https://ai.google.dev/gemini-api/docs/interactions
-- Google, Gemini text generation: https://ai.google.dev/gemini-api/docs/text-generation
-- Wei et al., "Chain-of-Thought Prompting" (2022): https://arxiv.org/abs/2201.11903
+- Google, Gemini text generation (sampling deprecation note): https://ai.google.dev/gemini-api/docs/text-generation
 - Wang et al., "Self-Consistency" (2022): https://arxiv.org/abs/2203.11171
 - Olsson et al., "In-context Learning and Induction Heads" (2022): https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html
 - Zhao et al., "Calibrate Before Use" (2021): https://arxiv.org/abs/2102.09690

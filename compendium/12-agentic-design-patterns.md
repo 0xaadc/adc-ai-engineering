@@ -130,6 +130,8 @@ def write_article(topic: str, max_retries: int = 2) -> str:
 print(write_article("Lakehouse table formats"))
 ```
 
+Only the stub would change for another provider. OpenAI's Responses API takes `instructions=` and `input=` and returns `output_text`, and Google's Gemini API puts the system prompt in a `system_instruction` config. The pattern itself lives entirely in your code.
+
 **Routing.** A first call classifies the input. Code then dispatches it to a handler that has its own prompt, its own tools and possibly its own model. Without routing, "optimizing for one kind of input can hurt performance on other inputs" (Anthropic), because one prompt has to carry every case. Routing also controls cost by sending easy traffic to a small model (P10). The failure mode is silent misrouting: the wrong specialist answers confidently. To guard against it, you need a safe default route, a confidence threshold and a routing-accuracy eval ([§26](26-evals.md)).
 
 ```python
@@ -260,7 +262,7 @@ user prompt (1-4 sentences)
    builds one feature at a time,                               drives the running app
    commits to git, writes files ───────── reads files ──────►  with Playwright; grades
       ▲                                                        criteria with hard thresholds
-      └──────────── failed criteria + specific bug reports ◄───────────────┘
+      └──────────── failed criteria + specific bug reports ────────────────┘
 ```
 
 The planner stays at the product level on purpose. Granular technical details it got wrong "would cascade into the downstream implementation."
@@ -282,7 +284,7 @@ When Opus 4.6 arrived, the author removed components one at a time. The sprints 
 
 ## Comparison
 
-**Pattern-selection guide.** Start at the top and stop at the first row that fits. Each row further down costs more and hands more control to the model.
+**Pattern-selection guide.** Start at the top and stop at the first row that fits. Rows further down generally cost more and hand more control to the model.
 
 | If the task looks like… | Use | Why it fits | Watch for |
 |---|---|---|---|

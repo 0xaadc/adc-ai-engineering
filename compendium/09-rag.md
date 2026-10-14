@@ -24,16 +24,18 @@ Why not paste everything in? Context is finite and rots (P3), and every token co
 ### The pipeline
 
 ```text
-INGEST (offline, like an ELT job)                 QUERY (online, per request)
-sources ─▶ parse ─▶ chunk ─▶ embed ─▶ index       question + chat history
-PDFs,      text +   + context  pinned   dense +       │ rewrite: standalone, expand, split
-wikis,     tables,  + metadata model    BM25 +        ▼
-tickets    headings (source,   version  metadata ◀── retrieve: hybrid + ACL/tenant filters
-                    ACL, date)                        │ rerank: ~150 → ~5-20
-                                                      ▼
-                                          assemble context: sources first, stable IDs
-                                                      ▼
-                                          generate with citations ─▶ answer + sources
+INGEST (offline, like an ELT job)
+  sources ──▶ parse ──────────▶ chunk ──────────────▶ embed ──────────▶ index
+  PDFs,       text + structure  + LLM context         pinned model      dense + BM25
+  wikis,      (headings,        + metadata            version           + metadata
+  tickets     tables)           (source, ACL, date)                     filters
+                                                                          │
+QUERY (online, per request)                                               │
+  question ──▶ rewrite ──────▶ retrieve ◀────────────────────────────────┘
+  + history    standalone,     hybrid + ACL/tenant filters
+               expanded        ──▶ rerank (~150 → ~5-20)
+                               ──▶ assemble context (sources first, stable IDs)
+                               ──▶ generate with citations ──▶ answer + sources
 ```
 
 ### Ingest: parse → chunk → embed → index
@@ -199,7 +201,7 @@ A note on names. Vendors also use "GraphRAG" loosely for any retrieval backed by
 
 The model can only read what you hand it. In classic RAG, the retrieval logic is fixed in your code: one query, chosen before the model has thought about the question. If that query misses, nothing fetches again. The model also can't get live data (today's order status) or act (issue the refund). Letting the model decide what to fetch, and what to do, takes a contract in which the model requests an action and the harness executes it (P6).
 
-→ Next: [§10 Tool Use](10-tool-use.md)
+→ Next: [§10 Tool Use and Tool Design](10-tool-use.md)
 
 ## Check your understanding
 

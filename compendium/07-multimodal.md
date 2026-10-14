@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-This is 2023 onward. GPT-4 was announced with image input in March 2023, and GPT-4V(ision) shipped later that year. Google described Gemini (Dec 2023) as natively multimodal. Anthropic's Claude 3 family added vision on Mar 4, 2024, and GPT-4o (May 2024) brought native audio in and out of a single model. [§06](06-structured-outputs.md) made the model's *output* machine-readable, but its *input* was still text you had pasted in. This section covers how pixels (and, briefly, sound) get into a model that only understands token sequences (P1), what that costs, and how to handle documents, the messiest input most companies have.
+This is 2023 onward. OpenAI's GPT-4 technical report (Mar 2023) described a model that accepts image and text input, and GPT-4V(ision) shipped later that year. Google's Gemini family (Dec 2023) was built to cover image, audio, video and text. Anthropic's Claude 3 family added vision on Mar 4, 2024. GPT-4o (May 2024) is, in its system card's words, "an autoregressive omni model" trained end-to-end across text, vision and audio. [§06](06-structured-outputs.md) made the model's *output* machine-readable, but its *input* was still text you had pasted in. This section covers how pixels (and, briefly, sound) get into a model that only understands token sequences (P1), what that costs, and how to handle documents, the messiest input most companies have.
 
 ## Why this exists
 
@@ -261,7 +261,7 @@ OpenAI's voice-agent guide (Oct 2026) now also lists a full-duplex live model (o
 Two families, for orientation only:
 
 - **Diffusion models** (DDPM, Ho et al., 2020) start from noise and repeatedly denoise it, guided by the prompt. This is not next-token prediction.
-- **Autoregressive image models** (OpenAI's DALL·E, 2021; early-fusion models such as Chameleon) predict discrete image tokens one at a time, the same P1 mechanism as text.
+- **Autoregressive image models** (OpenAI's DALL·E, 2021; early-fusion models such as Chameleon) predict discrete image tokens one at a time, the same P1 mechanism as text. GPT-4o's system card describes one network that can output text, audio and images.
 
 This compendium covers models that *read* media, not ones that generate it.
 
@@ -334,6 +334,9 @@ Chaining turns audio into text, so you can inspect, log, filter and route it, sw
 - Anthropic, Claude Platform release notes (PDF GA Dec 17, 2024; Files API GA Aug 19, 2026; high-resolution images): https://platform.claude.com/docs/en/release-notes/overview
 - Anthropic, Models overview ("text and image input, text output"): https://platform.claude.com/docs/en/about-claude/models/overview
 - Anthropic, "Introducing the next generation of Claude" (Claude 3, Mar 4, 2024): https://www.anthropic.com/news/claude-3-family
+- OpenAI, "GPT-4 Technical Report", arXiv 2303.08774: https://arxiv.org/abs/2303.08774
+- OpenAI, "GPT-4o System Card", arXiv 2410.21276: https://arxiv.org/abs/2410.21276
+- Gemini Team, Google, "Gemini: A Family of Highly Capable Multimodal Models", arXiv 2312.11805: https://arxiv.org/abs/2312.11805
 - OpenAI, Images and vision guide (`input_image`): https://developers.openai.com/api/docs/guides/images-vision
 - OpenAI, File inputs guide (PDF text plus page images): https://developers.openai.com/api/docs/guides/file-inputs
 - OpenAI, Voice agents guide (architectures): https://developers.openai.com/api/docs/guides/voice-agents

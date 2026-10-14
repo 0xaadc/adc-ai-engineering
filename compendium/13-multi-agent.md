@@ -298,4 +298,5 @@ A2A is a wire protocol for agents that are opaque to each other: they're built b
 - LangGraph multi-agent concepts, 2024 version (network, supervisor, hierarchical): https://github.com/langchain-ai/langgraph/blob/0.2.60/docs/docs/concepts/multi_agent.md
 - langgraph-swarm README: https://github.com/langchain-ai/langgraph-swarm-py
 - Claude Managed Agents docs, "Multiagent orchestration" (beta): https://platform.claude.com/docs/en/managed-agents/multiagent-orchestration
+- Google Developers Blog, "Announcing the Agent2Agent Protocol (A2A)," Apr 9, 2025: https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/
 - A2A Protocol: https://a2a-protocol.org/latest/

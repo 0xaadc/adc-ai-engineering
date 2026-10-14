@@ -9,7 +9,7 @@ The vocabulary came from two 2023 papers:
 - **CoALA** (Sumers, Yao, Narasimhan & Griffiths, Sep 2023) borrowed memory types from cognitive science.
 - **MemGPT** (Packer et al., Oct 2023) treated the context window like RAM in an operating system and let the model page data in and out.
 
-In 2025 these ideas became products: the mem0 paper (Apr 2025), Letta (the company behind MemGPT), LangGraph's long-term stores, and Anthropic's memory tool (beta, Sep 29, 2025). In 2026 vendors started saying "memory engineering". That is a niche label for a subset of context engineering: deciding which tokens from *past* sessions enter the *current* window. [§16](16-context-engineering.md) managed context inside a session. It left the question of what should persist across sessions, and how.
+In 2025 these ideas became products: the mem0 paper (Apr 2025), Letta (the company behind MemGPT), LangGraph's long-term stores, and Anthropic's memory tool (beta, Sep 29, 2025). In 2026 vendor and consultancy blogs started saying "memory engineering". That is a niche label for a subset of context engineering: deciding which tokens from *past* sessions enter the *current* window. [§16](16-context-engineering.md) managed context inside a session. It left the question of what should persist across sessions, and how.
 
 ## Why this exists
 
@@ -67,9 +67,9 @@ LangGraph's docs describe two layouts for semantic memory:
 
 ### Write paths: hot path vs background
 
-**Hot path.** The agent decides to save something during the conversation, usually by calling a memory tool. LangGraph's docs cite ChatGPT's `save_memories` tool. Anthropic's memory tool and Claude Code's auto memory work the same way. The memory is available immediately and visible to the user. The costs: added latency, one more decision per turn, and a model splitting its attention between the task and the memory.
+**Hot path.** The agent saves something during the conversation, usually through a memory tool: ChatGPT's `save_memories` (cited in LangGraph's docs), Anthropic's memory tool, Claude Code's auto memory. The memory is usable immediately and visible to the user. The costs are latency, one more decision per turn, and a model splitting its attention.
 
-**Background consolidation.** A separate job reads transcripts afterwards and updates the store. It can be triggered after inactivity, on a cron schedule, or manually. It adds no latency, and a focused job can deduplicate and reconcile entries. The cost is that other threads see new memories late, and you have to tune when the job runs. Examples:
+**Background consolidation.** A separate job reads transcripts afterwards and updates the store, triggered by inactivity, a cron schedule or by hand. It adds no latency and can deduplicate and reconcile. The cost is that other threads see new memories late. Examples:
 
 - Generative Agents' periodic "reflection" synthesizes higher-level observations from raw memories.
 - Anthropic's **Dreams** **(Preview)** is a research preview on Managed Agents since May 2026. A dream reads a memory store plus 1 to 100 past sessions and writes a *new* store: duplicates merged, stale or contradicted entries "replaced with the latest value", insights added. The input store is never modified, so you can review the output before adopting it. A data engineer will recognize the pattern: build the new table, validate it, swap it in.
@@ -111,7 +111,7 @@ MemGPT's "virtual context management" borrows from operating-system virtual memo
  │                       recursive summary     │     │ every message, searchable    │
  └─────────────────────────────────────────────┘     └──────────────────────────────┘
   at the warning threshold (e.g. 70%): "memory pressure" message; model saves what matters
-  at the flush threshold (e.g. 100%): evict ~half the queue, fold it into the summary
+  at the flush threshold (e.g. 100%): evict messages (e.g. 50% of the window) into the summary
 ```
 
 The model manages its own memory with function calls. It writes key facts into working context, searches archival storage, and pages old messages back in from recall storage. A `request_heartbeat=true` argument asks for another inference step, so the model can chain several memory operations. The warning before eviction matters: it gives the model a chance to save important details before code throws them out. Memory management becomes the model's decision, executed by code (P6). The tradeoff is that every memory operation costs an extra model step and depends on the model's judgment.
@@ -230,7 +230,7 @@ From 2025 into 2026 the field converged on a plain answer: memory is files that 
 - **Agent-written notes.** Claude Code's auto memory writes to `~/.claude/projects/<project>/memory/`: a `MEMORY.md` index plus topic files typed `user`, `feedback`, `project` or `reference`. It skips anything derivable from the code, and it stamps each file with a `modified` timestamp, so staleness is visible.
 - **Progress files and git.** The long-running harness from [§16](16-context-engineering.md) pairs a progress log with `git log`. Git history is episodic memory with timestamps, diffs and authorship for free, and `git revert` is memory rollback.
 
-Files won because they are inspectable, diffable and versioned. Models are also heavily trained on file tools, and there is no embedding index to drift. Files are weak at fuzzy recall across thousands of items and at isolating many users at scale. That is where a store with search earns its place, and many systems combine an index file with search.
+Files won because they are inspectable, diffable and versioned, models are heavily trained on file tools, and there is no embedding index to drift. They are weak at fuzzy recall across thousands of items and at isolating many users, which is where a store with search earns its place.
 
 ### Failure modes
 
@@ -242,8 +242,8 @@ Files won because they are inspectable, diffable and versioned. Models are also 
   - Limit what remembered text can trigger, through least privilege on tools ([§32](32-security-guardrails.md)).
 - **Self-poisoning.** The agent's own hallucination gets saved and becomes a "fact". This is Breunig's context poisoning, now crossing sessions.
 - **Staleness and contradiction.** "The team uses Redshift" (2025) and "the team migrated to Snowflake" (2026) can both sit in the store and clash at read time. Defenses: timestamps, UPDATE/DELETE during consolidation, background jobs that replace stale entries with the latest value, and a rule that the newest entry wins.
-- **Privacy and deletion.** Memory is personal data. Never store secrets: Anthropic's docs warn that a key written once is replayed into every later session that mounts the store. A deletion request, such as a GDPR erasure request, must reach every copy: raw memories, summaries, embeddings and version history. The reference memory handlers have no access control, so enforce per-user namespaces and authentication yourself.
-- **Unbounded growth.** If the always-loaded part grows every session, it brings back [§16](16-context-engineering.md)'s rot and cost. Use hard caps (Claude Code's 200-line or 25KB index limit, file-size limits), expire memories nobody reads, and consolidate periodically.
+- **Privacy and deletion.** Memory is personal data. Never store secrets: a key written once is replayed into every later session that mounts the store. An erasure request (e.g. under GDPR) must reach every copy: raw memories, summaries, embeddings and version history. The reference handlers have no access control, so enforce per-user namespaces and authentication yourself.
+- **Unbounded growth.** An always-loaded part that grows every session brings back [§16](16-context-engineering.md)'s rot and cost. Cap it (Claude Code limits its index to 200 lines or 25KB), expire unread memories, and consolidate.
 
 ## Comparison
 
@@ -275,7 +275,7 @@ Files won because they are inspectable, diffable and versioned. Models are also 
 
 Memory decides which facts and experiences come back. The awkward category is procedural know-how: "how we do X here", such as the backfill runbook or the PR checklist. Kept in an always-loaded file, it costs tokens on every turn whether or not the task needs it. Copying it into each prompt, agent and tool doesn't scale across a team. The next step is packaging know-how so the agent sees only a short description and loads the full procedure when the task calls for it.
 
-→ Next: [§18 Skills](18-skills.md)
+→ Next: [§18 Agent Skills](18-skills.md)
 
 ## Check your understanding
 
@@ -297,7 +297,7 @@ Hot-path writes happen during the conversation, so the memory is usable immediat
 
 **Q: Why did MemGPT warn the model about "memory pressure" before evicting messages, rather than just evicting them?**
 
-Eviction is done by code, which can't judge which details matter. The warning at a threshold such as 70% gives the model a turn to move important facts into working context or archival storage before the queue manager drops half the messages into a summary. Decide what to keep before the cut, not after.
+Eviction is done by code, which can't judge which details matter. The warning at a threshold such as 70% gives the model a turn to move important facts into working context or archival storage before the queue manager evicts a large block of messages (e.g. half the window) into a summary. Decide what to keep before the cut, not after.
 
 **Q: A support agent needs each customer's plan, the refund policy and the company's tone of voice. Where should each live?**
 

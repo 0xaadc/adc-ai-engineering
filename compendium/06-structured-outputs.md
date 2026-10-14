@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-This is the 2023–2025 part of the system thread. [§05](05-api-and-prompting.md) showed how to call a model and steer it with a prompt, but what comes back is free text written for a human. Code can't reliably parse free text: a pipeline expecting `{"total": 42.5}` breaks when it gets "Sure! Here's the JSON:" and a markdown fence. This section follows the fix through four steps (asking politely, JSON mode in 2023, schema-guaranteed structured outputs from 2024) and explains the decoding mechanism that makes the guarantee possible. The same mechanism later makes tool calls reliable ([§10](10-tool-use.md)).
+This is the 2023–2025 part of the system thread. [§05](05-api-and-prompting.md) showed how to call a model and steer it with a prompt, but what comes back is free text written for a human. Code can't reliably parse free text: a pipeline expecting `{"total": 42.5}` breaks when it gets "Sure! Here's the JSON:" and a markdown fence. This section follows the fix through four steps (asking politely, a function-calling trick and JSON mode in 2023, then schema-guaranteed structured outputs from 2024) and explains the decoding mechanism that makes the guarantee possible. The same mechanism later makes tool calls reliable ([§10](10-tool-use.md)).
 
 ## Why this exists
 
@@ -289,6 +289,7 @@ A tool call is the model emitting a name plus a JSON object that must match the 
 - Anthropic, Claude Platform release notes (Nov 14, 2025 beta; Jan 29, 2026 GA; Opus 4.6 prefill removal; forced `tool_choice` changes): https://platform.claude.com/docs/en/release-notes/overview
 - OpenAI, Structured Outputs guide (JSON mode vs Structured Outputs, refusals, whitespace warning): https://developers.openai.com/api/docs/guides/structured-outputs
 - OpenAI, "Introducing Structured Outputs in the API" (Aug 6, 2024): https://openai.com/index/introducing-structured-outputs-in-the-api/
+- OpenAI Developer Community, "How do I use the new JSON mode?" (Nov 2023; JSON mode launch at DevDay) (secondary): https://community.openai.com/t/how-do-i-use-the-new-json-mode/475890
 - Simon Willison, "OpenAI: Introducing Structured Outputs in the API" (Aug 6, 2024; quotes Ted Sanders on CFG preprocessing and loops) (secondary): https://simonwillison.net/2024/Aug/6/openai-structured-outputs/
 - Google, Gemini API structured outputs: https://ai.google.dev/gemini-api/docs/structured-output
 - Willard & Louf, "Efficient Guided Generation for Large Language Models" (Outlines), arXiv 2307.09702: https://arxiv.org/abs/2307.09702
