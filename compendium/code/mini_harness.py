@@ -27,7 +27,7 @@ Skills (call load_skill with a name before following that skill):
 {skills}"""
 
 def say(kind, name, note):
-    print(f"  {kind:<7} {name:<14} {note}")
+    print(f"  {kind:<7} {name:<14} {note if len(note) <= 120 else note[:117] + '...'}")
 
 def short(args: dict) -> str:
     return ", ".join(f"{k}={v!r}" if len(repr(v)) <= 45 else f"{k}=..." for k, v in args.items())
@@ -233,7 +233,7 @@ def agent_loop(run: Run, it: int, system: str, messages: list, max_turns=4) -> s
             result, replayed = run.log.step(f"{sid}.{call['id']}", run.hooks.run_tool, call)
             note = ("ERROR: " if result["is_error"] else "ok: ") + result["content"]
             run.trace.record("tool", call["name"], t0, replayed, None,
-                             note.replace("\n", " | ")[:160], result["is_error"])
+                             note.replace("\n", " | "), result["is_error"])
             results.append(result)
         messages.append({"role": "user", "content": results})  # every result in ONE user turn
     return "max_turns"

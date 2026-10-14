@@ -43,7 +43,7 @@ Each layer's work did not disappear. It got absorbed into the layer above it. Pr
    application: AGENTIC ENGINEERING (all of it, applied to building software)
 ```
 
-Practitioners themselves state this nesting. Anthropic calls context engineering "the natural progression of prompt engineering." LangChain writes that "harnesses today are largely delivery mechanisms for good context engineering." Birgitta Böckeler calls a user's harness "a specific form of context engineering." Addy Osmani places loop engineering "one floor above the harness." No single canonical source lays out the full chain *prompt → context → harness → loop*; it is the community's synthesis, and each link is attested separately.
+Practitioners themselves state this nesting. Anthropic calls context engineering "the natural progression of prompt engineering." LangChain writes that "harnesses today are largely delivery mechanisms for good context engineering." Birgitta Böckeler calls a user's harness "a specific form of context engineering." Addy Osmani places loop engineering "one floor above the harness." No single canonical source lays out the full chain *prompt → context → harness → loop*; it is the community's synthesis, and each link is attested separately. LangChain's graph-engineering post (Jul 2026) lists "prompt engineering, context engineering, harness engineering, and loop engineering" in that order, but as successive buzzwords, not as a nesting.
 
 ### Prompt engineering (2020– · established, now a subset)
 
@@ -68,9 +68,9 @@ Practitioners themselves state this nesting. Anthropic calls context engineering
 ### Harness engineering (Nov 2025 → 2026 · established)
 
 - **What it is:** designing everything in an agent except the model: tools, sandbox, hooks, subagents, guides (feedforward) and sensors (feedback), and the runtime. "Agent = Model + Harness." See [§19](19-harness-engineering.md) and [§20](20-agent-runtime.md).
-- **Where it came from:** Anthropic's "Effective harnesses for long-running agents" (Nov 2025) used the word. Mitchell Hashimoto named the practice (Feb 5, 2026): "anytime you find an agent makes a mistake, you… engineer a solution such that the agent never makes that mistake again." OpenAI's "Harness engineering" post (Feb 11, 2026), LangChain's "Anatomy of an Agent Harness" (Mar 10, 2026), and Böckeler on martinfowler.com (Apr 2, 2026) established it.
+- **Where it came from:** Anthropic's "Effective harnesses for long-running agents" (Nov 2025) used the word "harness." Who coined "harness engineering" is disputed. Mitchell Hashimoto used it for the practice on Feb 5, 2026 ("I've grown to calling this 'harness engineering'"): "anytime you find an agent makes a mistake, you… engineer a solution such that the agent never makes that mistake again." HumanLayer and Addy Osmani credit LangChain's Vivek Trivedy. OpenAI's "Harness engineering" post (Feb 11, 2026), LangChain's "Anatomy of an Agent Harness" (Mar 10, 2026), and Böckeler on martinfowler.com (Apr 2, 2026) established it.
 - **Why it's real:** it has artifacts (AGENTS.md, hooks, linters with fix-it messages, progress files), a measurable effect (the same model scores differently in different harnesses), and a core practice, the ratchet, in which every mistake becomes a permanent fix.
-- **Status:** established. All the major labs and toolmakers use the term.
+- **Status:** established. OpenAI, LangChain, HumanLayer and Thoughtworks use the term; Anthropic writes about the same work as "harness design."
 
 ### Loop engineering (practice Jul 2025, label Jun 2026 · emerging)
 
@@ -81,14 +81,14 @@ Practitioners themselves state this nesting. Anthropic calls context engineering
 ### Graph engineering (practice 2024, label Jul 2026 · niche label, established practice)
 
 - **What it is:** making control flow explicit as a state machine. Nodes (code, model calls, tools, or whole agents), conditional edges, cycles, shared state, checkpoints, and interrupts for human approval. See [§14](14-graph-engineering.md).
-- **Where it came from:** the practice goes back to LangGraph (early 2024). LangChain popularized the label in "3 Years of Graph Engineering with LangGraph" (Jul 22, 2026), after it trended among practitioners. Google ADK 2.0 and Microsoft Agent Framework have since converged on graph runtimes.
+- **Where it came from:** the practice goes back to LangGraph (early 2024). LangChain popularized the label in "3 Years of Graph Engineering with LangGraph" (Jul 22, 2026), after it trended among practitioners. Google ADK 2.0 and Microsoft Agent Framework have also converged on graph runtimes.
 - **The naming trap:** it is *not* GraphRAG, which uses knowledge graphs for retrieval ([§09](09-rag.md)).
 - **Status:** niche label, established practice. It sits *beside* the core nesting: it is about who owns control flow (P7), not about what the model sees.
 
 ### Agentic engineering (Feb 2026 · established)
 
 - **What it is:** professional software development with coding agents. You still review and own the code, use git deliberately, and lean on subagents and tests. See [§23](23-coding-agents.md).
-- **Where it came from:** Andrej Karpathy proposed it around Feb 2026 as the disciplined successor to his own "vibe coding" (Feb 2025: prompting without reading the code). Simon Willison's "Agentic Engineering Patterns" guide (Mar 2026) developed it.
+- **Where it came from:** Andrej Karpathy proposed it on Feb 4, 2026 as the disciplined successor to his own "vibe coding" (Feb 2, 2025: prompting without reading the code). Simon Willison's "Agentic Engineering Patterns" guide (started Feb 23, 2026) developed it.
 - **Status:** established. It is less a new layer than the whole stack applied to one domain, building software.
 
 ### The rest of the label zoo
@@ -96,8 +96,8 @@ Practitioners themselves state this nesting. Anthropic calls context engineering
 | Label | Origin | What it means | Status |
 |---|---|---|---|
 | **Spec-driven development** | Kiro, GitHub Spec Kit (2025); Böckeler's analysis (Oct 2025) | Write specs (requirements → design → tasks) and let agents implement them. Variants: spec-first, spec-anchored, spec-as-source | Established buzzword; definition still shifting |
-| **Compound engineering** | Kieran Klaassen, Every (2025) | Plan → Work → Review → Compound: each lesson is written back into docs and rules so the next run is better. Most time goes to planning and review | Moderate. A named form of the ratchet |
-| **Eval-driven development** | arXiv 2411.13768 (Nov 2024) | Write evals first, like TDD for LLM features | Evals are established; "evals first" is contested. Practitioners such as Hamel Husain recommend error analysis on real traces first ([§26](26-evals.md)) |
+| **Compound engineering** | Kieran Klaassen, Every: "compounding engineering" (Aug 18, 2025); "compound engineering" guide (Dec 11, 2025) | Plan → Work → Review → Compound: each lesson is written back into docs and rules so the next run is better. Most time goes to planning and review | Moderate. A named form of the ratchet |
+| **Eval-driven development** | Practitioner usage; formalized as "EDDOps" in arXiv 2411.13768 (Xia et al., Nov 2024) | Write evals first, like TDD for LLM features. The paper extends this to continuous offline and online evaluation | Evals are established; "evals first" is contested. Practitioners such as Hamel Husain recommend error analysis on real traces first ([§26](26-evals.md)) |
 | **Memory engineering** | Vendors and books, 2026 | Designing what agents remember and how | Niche. Really a sub-field of context engineering ([§17](17-memory.md)) |
 | **RL environments / "environment engineering"** | 2025 industry buildout | Sandboxed copies of real software plus verifiers, used to post-train models and to evaluate them | RL environments are a real and well-funded industry; the label is niche ([§29](29-adapting-models.md)) |
 | **Agent experience (AX)** | Mathias Biilmann, Netlify (Jan 2025) | Designing products and APIs so agents can use them, by analogy with developer experience (DX) | Real idea, mostly vendor-driven |
@@ -165,8 +165,8 @@ The biggest adjustment is P4. A data pipeline is either right or wrong, but an L
 | Graph engineering | Implicit control flow | State graphs, checkpointers, interrupts | 2024 (practice), Jul 2026 (label) | Niche label, established practice |
 | Agentic engineering | Unreviewed agent code | Review practices, git discipline, tests | Feb 2026 | Established |
 | Spec-driven development | Ambiguous intent | Specs, task lists, "constitutions" | 2025 | Buzzword, still shifting |
-| Compound engineering | Lessons that don't stick | Rule and doc updates after every task | 2025 | Moderate |
-| Eval-driven development | Untested changes | Eval suites written first | Nov 2024 | Contested |
+| Compound engineering | Lessons that don't stick | Rule and doc updates after every task | Aug 2025 | Moderate |
+| Eval-driven development | Untested changes | Eval suites written first | By Nov 2024 (paper) | Contested |
 
 **Discipline vs. buzzword: the four tests applied**
 
@@ -239,6 +239,15 @@ Accepting that correctness is a rate, not a fact (P4). Many habits carry over di
 - Addy Osmani, "Loop Engineering," Jun 7, 2026: https://addyosmani.com/blog/loop-engineering/
 - LangChain, "3 Years of Graph Engineering with LangGraph," Jul 22, 2026: https://www.langchain.com/blog/3-years-of-graph-engineering-with-langgraph
 - Ridnik, Kredo, Friedman, "Code Generation with AlphaCodium: From Prompt Engineering to Flow Engineering," Jan 2024: https://arxiv.org/abs/2401.08500
-- Every, "Compound engineering": https://every.to/chain-of-thought/compound-engineering-how-every-codes-with-agents
-- Eval-driven development, arXiv 2411.13768: https://arxiv.org/abs/2411.13768
+- Kieran Klaassen, Every, "My AI Had Already Fixed the Code Before I Saw It" ("compounding engineering"), Aug 18, 2025: https://every.to/source-code/my-ai-had-already-fixed-the-code-before-i-saw-it
+- Every, "Compound Engineering: How Every Codes With Agents," Dec 11, 2025: https://every.to/chain-of-thought/compound-engineering-how-every-codes-with-agents
+- Xia et al., "Evaluation-Driven Development and Operations of LLM Agents," arXiv 2411.13768, Nov 2024: https://arxiv.org/abs/2411.13768
+- Hamel Husain, evals FAQ ("Should I practice eval-driven development?"): https://hamel.dev/blog/posts/evals-faq/
+- Andrej Karpathy, post proposing "agentic engineering," Feb 4, 2026: https://x.com/karpathy/status/2019137879310836075
+- Andrej Karpathy, "vibe coding" post, Feb 2, 2025: https://x.com/karpathy/status/1886192184808149383
+- Simon Willison, "Writing about Agentic Engineering Patterns," Feb 23, 2026: https://simonwillison.net/2026/Feb/23/agentic-engineering-patterns/ (guide: https://simonwillison.net/guides/agentic-engineering-patterns/)
+- Birgitta Böckeler, "Understanding Spec-Driven-Development: Kiro, spec-kit, and Tessl," martinfowler.com, Oct 15, 2025: https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html
+- Mathias Biilmann, "Introducing AX: Why Agent Experience Matters," Jan 28, 2025: https://biilmann.blog/articles/introducing-ax/
+- HumanLayer, "Skill Issue: Harness Engineering for Coding Agents," Mar 12, 2026: https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
+- Addy Osmani, "Agent Harness Engineering," Apr 19, 2026: https://addyosmani.com/blog/agent-harness-engineering/
 - AI Engineer World's Fair 2026 tracks: https://ai.engineer/wf/llms.md

@@ -43,10 +43,10 @@ Each system step exists because the step before it left a problem unsolved, and 
 | 2023 | JSON mode | Machine-readable output, without a guarantee yet | [§06](06-structured-outputs.md) |
 | Sep–Oct 2023 | CoALA; MemGPT | A vocabulary and architecture for agent memory | [§17](17-memory.md) |
 | Jan 2024 | AlphaCodium ("flow engineering") | Multi-stage, test-driven flows beat single prompts | [§38](38-disciplines-map.md) |
-| Early 2024 | LangGraph | Agent workflows as stateful graphs | [§14](14-graph-engineering.md) |
+| Jan 2024 | LangGraph | Agent workflows as stateful graphs | [§14](14-graph-engineering.md) |
 | Mar 2024 | Ng's four agentic patterns | A first common vocabulary for agent patterns | [§12](12-agentic-design-patterns.md) |
 | Apr 2024 | GraphRAG (Microsoft) | Whole-corpus questions answered over knowledge graphs | [§09](09-rag.md) |
-| Aug 2024 | Strict structured outputs | Schema-guaranteed output through constrained decoding | [§06](06-structured-outputs.md) |
+| Aug 2024 | Strict structured outputs (OpenAI; Anthropic followed with a beta in Nov 2025, GA Jan 2026) | Schema-guaranteed output through constrained decoding | [§06](06-structured-outputs.md) |
 | Sep 2024 | Contextual retrieval (Anthropic) | Chunks that keep their surrounding context | [§09](09-rag.md) |
 | Oct 2024 | Computer use (Anthropic) | Agents that operate screens | [§24](24-computer-use-and-research-agents.md) |
 | Nov 2024 | Model Context Protocol (MCP) | One standard for agent↔tool connections (P11) | [§15](15-protocols-mcp-a2a.md) |
@@ -56,16 +56,16 @@ Each system step exists because the step before it left a problem unsolved, and 
 | Apr 2025 | A2A protocol (Google); "12-factor agents" | Agent↔agent interoperability; context ownership as a principle | [§15](15-protocols-mcp-a2a.md), [§16](16-context-engineering.md) |
 | Jun 2025 | "Context engineering" (Lütke, Karpathy); Anthropic multi-agent research system; Cognition, "Don't build multi-agents"; the lethal trifecta | Curating context; multi-agent evidence, for and against; a security model for agents | [§16](16-context-engineering.md), [§13](13-multi-agent.md), [§32](32-security-guardrails.md) |
 | Jul 2025 | "Context Rot" (Chroma); Ralph Wiggum loop (Huntley) | Measured degradation of long contexts; a bash loop that keeps re-prompting an agent | [§16](16-context-engineering.md), [§21](21-loop-engineering.md) |
-| Aug 2025 | Compound engineering (Every) **(⚠ verify)** | Every lesson gets fed back into the system | [§23](23-coding-agents.md) |
+| Aug 2025 | "Compounding engineering" (Every; later "compound engineering") | Every lesson gets fed back into the system | [§23](23-coding-agents.md) |
 | Sep 2025 | "Effective context engineering for AI agents" (Anthropic) | Compaction, note-taking, sub-agents, just-in-time retrieval | [§16](16-context-engineering.md) |
 | Oct 2025 | Agent Skills (Anthropic); spec-driven development analyzed | Procedural know-how loaded on demand; specs as the source of truth | [§18](18-skills.md), [§23](23-coding-agents.md) |
 | Nov 2025 | "Effective harnesses for long-running agents" (Anthropic) | Initializer agents, progress files, multi-session work | [§19](19-harness-engineering.md) |
-| Dec 2025 | Agent Skills open standard; MCP moves under the Agentic AI Foundation **(⚠ verify)**; OWASP Agentic Top 10 | Cross-vendor skills; neutral protocol governance; a shared risk list | [§18](18-skills.md), [§15](15-protocols-mcp-a2a.md), [§32](32-security-guardrails.md) |
-| Feb 2026 | "Harness engineering" (Hashimoto; OpenAI); "agentic engineering" (Karpathy) | The harness becomes a discipline of its own | [§19](19-harness-engineering.md), [§23](23-coding-agents.md) |
+| Dec 2025 | Agent Skills open standard; MCP moves under the Agentic AI Foundation; OWASP Agentic Top 10 | Cross-vendor skills; neutral protocol governance; a shared risk list | [§18](18-skills.md), [§15](15-protocols-mcp-a2a.md), [§32](32-security-guardrails.md) |
+| Feb 2026 | "Harness engineering" (Hashimoto; OpenAI); "agentic engineering" (Karpathy; Willison's patterns guide) | The harness becomes a discipline of its own | [§19](19-harness-engineering.md), [§23](23-coding-agents.md) |
 | Mar 2026 | "Agent = Model + Harness" (LangChain); planner–generator–evaluator harness (Anthropic) | Anatomy of a harness; keeping the maker separate from the checker | [§19](19-harness-engineering.md) |
 | Apr 2026 | Böckeler's guides and sensors; Managed Agents (Anthropic); Cognition's "what's actually working" | Harness theory; separating session, harness, and sandbox; single-threaded writes | [§19](19-harness-engineering.md), [§20](20-agent-runtime.md), [§13](13-multi-agent.md) |
-| Jun 2026 | "Loop engineering" (Osmani) | Designing the systems that prompt agents | [§21](21-loop-engineering.md) |
-| Jul 2026 | "Graph engineering" label (LangChain); MCP 2026-07-28 spec (stateless core, Tasks, MCP Apps) **(⚠ verify)**; EU AI Act Omnibus **(⚠ verify)** | Naming graph orchestration; protocol maturity; a new regulation timeline | [§14](14-graph-engineering.md), [§15](15-protocols-mcp-a2a.md), [§34](34-governance-regulation.md) |
+| Jun 2026 | "Loop engineering" (Osmani); EU AI Act Omnibus formally adopted **(⚠ verify)** | Designing the systems that prompt agents; a new regulation timeline | [§21](21-loop-engineering.md), [§34](34-governance-regulation.md) |
+| Jul 2026 | "Graph engineering" label (LangChain); MCP 2026-07-28 spec (stateless core, extensions framework, Tasks as an extension) | Naming graph orchestration; protocol maturity | [§14](14-graph-engineering.md), [§15](15-protocols-mcp-a2a.md) |
 
 ## The chain in one breath
 

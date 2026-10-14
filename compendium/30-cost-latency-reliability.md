@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-This is Part 8, production, and it applies to every era: a single classification call from 2022 and a 2026 multi-agent research system both pay per token, wait on decode and depend on a shared remote service. [§29](29-adapting-models.md) ended with a better-adapted model, but that model still has to answer within a budget, within a latency target and through the provider's outages. The driving principle is P10 (every token costs compute and time). P4 (sampled output) changes what "reliable" means, P8 (errors compound) explains why agents amplify every failure, and P11 (standard interfaces) is why gateways exist. The inference mechanics behind the numbers are in [§03](03-inference.md); this section covers the engineering built on top of them.
+This is Part 8, production, and it applies to every era: a single classification call from 2022 and a 2026 multi-agent research system both pay per token, wait on decode and depend on a shared remote service. [§29](29-adapting-models.md) ended with a better-adapted model, but that model still has to answer within a budget, within a latency target and through the provider's outages. P10 (every token costs compute and time) drives it; P4 changes what "reliable" means, P8 explains why agents amplify every failure, and P11 is why gateways exist. The inference mechanics behind the numbers are in [§03](03-inference.md); this section covers the engineering built on them.
 
 ## Why this exists
 
@@ -187,9 +187,9 @@ Other providers draw the lines differently. OpenAI returns 429 for rate limits a
 #### Retries: backoff, jitter, deadlines, one layer
 
 - **Exponential backoff** doubles the wait after each failure, giving a struggling service room to recover.
-- **Jitter** randomizes the wait. Without it, clients that failed together retry together and knock the service over again. AWS measured "Full Jitter" (a uniform random wait up to the backoff cap) cutting total calls by more than half with 100 contending clients.
-- **Retry at one layer.** AWS's Builders' Library shows five layers that each try three times multiplying load on the bottom layer 243×. The Anthropic SDKs already retry twice by default (connection errors, 408, 409, 429, 5xx), honoring `retry-after`. If your loop or gateway also retries, set the SDK's `max_retries=0`.
-- **Deadlines beat attempt counts.** SDK timeouts are themselves retried, so wall-clock time can reach `timeout × (max_retries + 1)`. A client-side timeout also doesn't prove the provider did no work, and you may still be billed for it **(⚠ verify)**.
+- **Jitter** randomizes the wait, so clients that failed together don't retry together. AWS measured "Full Jitter" (a uniform random wait up to the backoff cap) cutting total calls by more than half with 100 contending clients.
+- **Retry at one layer.** AWS's Builders' Library shows five layers that each try three times multiplying load on the bottom layer 243×. The Anthropic SDKs already retry twice by default (connection errors, 408, 409, 429, 5xx), honoring `retry-after`, so set `max_retries=0` if your loop or gateway retries too.
+- **Deadlines beat attempt counts.** SDK timeouts are themselves retried, so wall-clock time can reach `timeout × (max_retries + 1)`. A client-side timeout doesn't prove the provider did no work; you may still be billed **(⚠ verify)**.
 
 ```python
 import os
@@ -252,17 +252,17 @@ apps ──► GATEWAY ──► Anthropic / Bedrock / Vertex / OpenAI / self-ho
           └ logs, traces, cost attribution (§27); optional caching, guardrails (§32)
 ```
 
-- **LiteLLM** (open source) is a Python router and proxy with load balancing, cooldowns, fallbacks, timeouts and retries, plus virtual keys with spend tracking and budgets.
-- **OpenRouter** (hosted) is one API over many providers. A `models` array falls back in priority order, and a `provider` object controls ordering, fallbacks, price or latency sorting, and data-retention filters.
-- **Cloud gateways** include Cloudflare AI Gateway (analytics, logging, caching, rate limiting, retries, model fallback) and Azure API Management's AI gateway (per-consumer token limits and quotas, load balancing, semantic caching).
+- **LiteLLM** (open source): a router and proxy with load balancing, cooldowns, fallbacks and retries, plus virtual keys with budgets.
+- **OpenRouter** (hosted): one API over many providers; a `models` array falls back in priority order, and a `provider` object controls ordering, price or latency sorting, and data-retention filters.
+- **Cloud gateways:** Cloudflare AI Gateway (logging, caching, rate limiting, retries, model fallback) and Azure API Management's AI gateway (per-consumer token quotas, load balancing, semantic caching).
 
-The costs are an extra hop, a new single point of failure that needs its own redundancy, and a lowest-common-denominator API. Provider-specific features such as cache breakpoints, thinking blocks or citations may not survive translation, so test them end to end.
+The costs are an extra hop, a new single point of failure that needs its own redundancy, and a lowest-common-denominator API. Provider features such as cache breakpoints, thinking blocks or citations may not survive translation, so test them end to end.
 
 #### Idempotency, degradation and spend caps
 
 A model call changes nothing at the provider, so a retry is safe for correctness, but you pay again and get a new sample. Side effects live in your tools (P6), and a retried "send email" needs an **idempotency key** derived from the task and step ID, like an exactly-once sink ([§20](20-agent-runtime.md)). Give batch requests deterministic `custom_id`s so reprocessing results is an upsert.
 
-Decide in advance what users get when the model path fails: fallback model → cached or precomputed answer → non-AI path → queue for later → an honest "try again". Shed load by priority so interactive users keep capacity. Prefer a retry budget to a hair-trigger circuit breaker, which, AWS warns, can "introduce modal behavior into systems that can be difficult to test."
+Decide in advance what users get when the model path fails: fallback model → cached or precomputed answer → non-AI path → queue for later → an honest "try again". Shed load by priority so interactive users keep capacity. AWS prefers a retry budget to circuit breakers, which "introduce modal behavior into systems that can be difficult to test."
 
 The classic LLM cost incident is a loop that never stops, such as an agent retrying a failing tool all night. Defend in layers:
 1. **Provider caps.** On Anthropic, an organization or workspace spend limit; requests over a self-set limit fail with a 400, and batches can overshoot slightly.
@@ -287,9 +287,7 @@ Quality is sampled because you can't unit-test a distribution (P4). For agents, 
 
 - **Silent cache regression:** a new field in the system prompt drops the hit rate to zero; nothing errors, and the bill quadruples.
 - **Retry storms:** retries without jitter, or at several layers, turn a blip into an outage.
-- **Runaway loops** with no cap on turns or spend.
 - **Silent fallback degradation:** the backup model serves 30% of traffic for a week and quality drops unnoticed.
-- **Retrying the unretryable:** spend-cap 429s and 400s burn time and hide the cause.
 
 ## Comparison
 
@@ -302,14 +300,6 @@ Quality is sampled because you can't unit-test a distribution (P4). For agents, 
 | Output shaping | Fewer output tokens (5× price) | Proportional to output share | Possible loss of detail | Output is already short |
 | Context trimming | Fewer resent tokens | Helps long sessions | Breaks the cache at each edit | Short loops |
 | Semantic cache | Skip the call for similar queries | High on FAQ-like traffic | False hits, leakage, staleness | Personalized, agentic or fast-changing answers |
-
-| Reliability pattern | Protects against | Cost | Pitfall |
-|---|---|---|---|
-| Backoff + jitter + deadline | Transient 429/5xx, unbounded waits | Latency | Retrying at several layers |
-| Model / provider fallback | Rate limits, outages | Eval and prompt upkeep per model | Untested fallback quality |
-| Gateway | N×M integration, key sprawl | Extra hop, new dependency | Lost provider-specific features |
-| Idempotency keys | Duplicate side effects | Key plumbing | Missing a non-obvious side effect |
-| Spend caps + alerts | Runaway loops | Hard failure at the cap | Caps without alerts surprise users |
 
 ## What it didn't solve
 
@@ -330,10 +320,6 @@ Every request's prefix would differ from the cached one at the first changed byt
 **Q: 429 vs 529: why should your client treat them differently?**
 
 A 429 means you exceeded your own per-model quota and usually carries `retry-after`, so wait that long or use a model with its own limit. A 529 means the provider is overloaded for everyone, so back off, and switching models or providers may get you served sooner. A spend-cap 429 has no `retry-after` and must not be retried at all.
-
-**Q: Why add jitter to exponential backoff?**
-
-Clients that failed together would otherwise retry together and recreate the spike. Randomizing each wait spreads the retries, and AWS measured total calls more than halved under contention. Jitter can't fix retries that multiply across layers, so retry in one place.
 
 **Q: Cascade vs a single model at lower effort: which should you try first, and why?**
 

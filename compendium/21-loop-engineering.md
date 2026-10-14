@@ -66,7 +66,7 @@ There is nothing clever in the loop itself. The work lives in the files it point
 - **Same stack every time.** He writes "deterministically allocate the stack the same way every loop": the same prompt, specs and plan, in the same order.
 - **Tune, don't blame.** "Each time Ralph does something bad, Ralph gets tuned - like a guitar." When the agent keeps making the same mistake, you add a sign to the prompt, such as "Before making changes search codebase (don't assume not implemented)."
 
-He sums up the technique as "deterministically bad in an undeterministic world." The failures are predictable, so you can find them and fix them. OpenAI's Feb 2026 harness-engineering post describes its agent PR-review cycle as a Ralph Wiggum loop.
+He sums up the technique as "deterministically bad in an undeterministic world." The failures are predictable, so you can find them and fix them. OpenAI's Feb 2026 harness-engineering post has Codex iterate on each PR "until all agent reviewers are satisfied," and says of that cycle, "effectively this is a Ralph Wiggum Loop."
 
 ### 2. Why a fresh context with state on disk works
 

@@ -50,7 +50,7 @@ The isolation options form a ladder. Each rung moves the boundary further from y
 
 1. **OS process sandbox.** Kernel features restrict one process tree: bubblewrap on Linux, Seatbelt on macOS, seccomp filters. It is instant, but it shares your kernel and your machine.
 2. **Container.** Namespaces give the process its own view of files, network and processes, and cgroups cap its resources. It still shares the host kernel, so a kernel bug becomes an escape.
-3. **gVisor.** A user-space "application kernel" written in Go that intercepts the container's system calls and implements them itself. Its docs call it "seccomp on steroids". It runs as the OCI runtime `runsc`, so Docker and Kubernetes use it unchanged, at the cost of extra overhead on every system call.
+3. **gVisor.** A user-space "application kernel" written in Go that intercepts the container's system calls and implements them itself. Its docs stress that it is "not a syscall filter" like seccomp-bpf, and not a VM either. It runs as the OCI runtime `runsc`, so Docker and Kubernetes use it unchanged, at the cost of extra overhead on every system call.
 4. **microVM.** Firecracker, the open-source technology under AWS Lambda, uses KVM to boot a minimal VM with its own guest kernel and only five emulated devices. It boots fast and is small enough to pack thousands onto one host. Hosted sandbox services such as E2B give agents on-demand Linux VMs.
 
 Here is the container rung written out as flags:

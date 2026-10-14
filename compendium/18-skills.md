@@ -169,12 +169,12 @@ Skills therefore need an execution environment. On the Claude API **(GA)** you a
     {"type": "anthropic", "skill_id": "xlsx", "version": "latest"},
     {"type": "custom", "skill_id": "skill_01AbCdEfGhIjKlMnOpQrStUv", "version": "latest"}
   ]},
-  "tools": [{"type": "code_execution_20250825", "name": "code_execution"}],
+  "tools": [{"type": "code_execution_20260521", "name": "code_execution"}],
   "messages": [{"role": "user", "content": "Build a budget workbook from this CSV"}]
 }
 ```
 
-The tool version string is the one Anthropic's Skills guide shows as of October 2026; newer code-execution versions exist, so check which one your model supports. Claude Code runs skills on your own machine, with the same network access as any other program you run.
+`code_execution_20260521` is the latest code-execution version as of October 2026. Anthropic's Skills guide still shows `code_execution_20250825` in its examples; that is one of three current versions (with `code_execution_20260120`), and every supported model accepts all three. Claude Code runs skills on your own machine, with the same network access as any other program you run.
 
 ### The description is the trigger
 
@@ -195,7 +195,7 @@ The model chooses skills from their descriptions alone, so the description works
 | Project | `.claude/skills/<name>/SKILL.md` in the repo | Everyone who clones it (commit it) |
 | Plugin | `<plugin>/skills/<name>/SKILL.md` | Wherever the plugin is enabled, namespaced `/plugin:skill` |
 
-On a name clash, enterprise beats personal and personal beats project. Claude Code merged its older custom slash commands into skills, and it accepts extra frontmatter beyond the spec (`disable-model-invocation`, `context: fork` to run the skill in a subagent, `hooks`, `model`). Those extras don't travel: claude.ai uploads and the Skills API accept only the spec's fields and reject the rest with a hard error. Skills also don't sync automatically between claude.ai, the API and Claude Code.
+On a name clash, enterprise beats personal and personal beats project. Claude Code merged its older custom slash commands into skills, and it accepts extra frontmatter beyond the spec (`disable-model-invocation`, `context: fork` to run the skill in a subagent, `hooks`, `model`). Those extras don't travel: claude.ai uploads and the Skills API accept only the spec's fields and reject the rest with a hard error. Custom skills don't sync between claude.ai and the API. Claude Code downloads (but never uploads) the skills enabled on your claude.ai account, and only in sessions signed in with that account.
 
 ### Authoring guidance
 
@@ -222,7 +222,7 @@ Those figures describe open community marketplaces, not curated vendor skills, b
 - Read every bundled file before installing.
 - Pin versions or vendor the skill into your repo, and review changes like code.
 - Avoid skills that fetch remote instructions.
-- Scan them (Snyk's `mcp-scan --skills`; Claude Enterprise scans skills uploaded in claude.ai).
+- Scan them (Snyk's `mcp-scan --skills`; Claude Enterprise organizations can turn on scanning for skills uploaded in claude.ai).
 - Run them in a sandbox with egress controls.
 
 Read `allowed-tools` with care: in Claude Code it *pre-approves* tools for the skill's turn, so it widens permissions rather than narrowing them. [§32](32-security-guardrails.md) covers the defenses in depth.
@@ -265,7 +265,7 @@ Portability has limits. The folder and the spec fields carry over. Vendor frontm
 | Context profile | Tool schemas, often up front | Tiny index; body on demand |
 | Main risk | Over-broad permissions on the server | Malicious instructions or scripts |
 
-They combine naturally: a Snowflake MCP server provides the query tools, and a `profiling-source-tables` skill says which queries to run, in what order, and how to read the results. Willison's first-day verdict was that skills are "maybe a bigger deal than MCP." Two facts suggest the two are complementary instead. Anthropic's launch post said it would "explore how Skills can complement Model Context Protocol (MCP) servers by teaching agents more complex workflows that involve external tools and software." And MCP itself now has an extension for serving skills.
+They combine naturally: a Snowflake MCP server provides the query tools, and a `profiling-source-tables` skill says which queries to run, in what order, and how to read the results. Willison's first-day verdict was that skills are "maybe a bigger deal than MCP." Two facts suggest the two are complementary instead. Anthropic's launch-day engineering post said it would "explore how Skills can complement Model Context Protocol (MCP) servers by teaching agents more complex workflows that involve external tools and software." And MCP itself now has an extension for serving skills.
 
 ## What it didn't solve
 
@@ -321,6 +321,7 @@ Many skills encode workarounds for a model's weaknesses, such as step-by-step ha
 - Anthropic docs, Agent Skills overview: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview
 - Anthropic docs, Skill authoring best practices: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
 - Anthropic docs, Using Agent Skills with the API: https://platform.claude.com/docs/en/build-with-claude/skills-guide
+- Anthropic docs, Code execution tool (tool versions): https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool
 - Claude Code docs, Skills: https://code.claude.com/docs/en/skills
 - Agent Skills open standard, overview: https://agentskills.io
 - Agent Skills specification: https://agentskills.io/specification
