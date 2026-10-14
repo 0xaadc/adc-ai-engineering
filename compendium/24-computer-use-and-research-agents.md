@@ -36,7 +36,7 @@ On the Claude API and Google Cloud, computer use is the **`computer_toolset_2026
 - **Coordinates are screenshot pixels.** The API doesn't downscale toolset images, so you resize screenshots to fit the image limits and scale returned coordinates back up.
 - **Versions.** The earlier `computer_20251124` (beta header `computer-use-2025-11-24`) still serves older models and Amazon Bedrock. Claude 5.5 models on the Claude API reject it with a 400.
 
-OpenAI's Responses API `computer` tool (with GPT-5.4, Mar 5, 2026, after the Mar 2025 `computer-use-preview`) returns a `computer_call` with an ordered `actions` array. You answer it with a `computer_call_output` screenshot. For its newest model, OpenAI's guide now recommends a code-execution tool instead, where the model writes PyAutoGUI or Playwright scripts that perform many actions per call. That is code-as-action from [§10](10-tool-use.md). Operator, OpenAI's Jan 2025 consumer agent, was folded into ChatGPT agent in Jul 2025 **(⚠ verify)**.
+OpenAI's Responses API `computer` tool (with GPT-5.4, Mar 5, 2026, after the Mar 2025 `computer-use-preview`) returns a `computer_call` with an ordered `actions` array. You answer it with a `computer_call_output` screenshot. For its newest model, OpenAI's guide now recommends a code-execution tool instead, where the model writes PyAutoGUI or Playwright scripts that perform many actions per call. That is code-as-action from [§10](10-tool-use.md). On Sep 29, 2026, OpenAI also added computer use to its hosted Agents API, running in an OpenAI-hosted browser. Operator, OpenAI's Jan 2025 consumer agent, was folded into ChatGPT agent in Jul 2025 **(⚠ verify)**.
 
 ### A stub screenshot-act loop
 
@@ -99,7 +99,7 @@ The levers are batch actions (fewer round trips), lower resolution plus `zoom`, 
 
 ### Reliability (P8)
 
-The docs list failures that an API never has:
+The docs describe failures that an API never has:
 
 - **Grounding misses.** Clicks are consistently offset when coordinates are applied to a screen of a different size (or a 2× Retina display), targets are too small after downscaling, or elements look alike.
 - **Assumed outcomes.** Claude "sometimes assumes outcomes of its actions without explicitly checking their results." The suggested fix is a prompt to screenshot and evaluate each step.

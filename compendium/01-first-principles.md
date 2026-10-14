@@ -89,7 +89,7 @@ Each principle has four parts: the **statement**, the **mechanism** behind it, w
 
 ### P4. Output is sampled, so behavior is probabilistic
 
-- **Mechanism:** Generation samples from a distribution, so the same input can produce different outputs. Setting temperature to 0 doesn't fully remove this on hosted inference, because results can depend on how your request is batched together with other users' requests (Thinking Machines, Sep 2025). Correctness is therefore a *rate* and not a yes/no property. A feature "works 94% of the time on this distribution of inputs."
+- **Mechanism:** Generation samples from a distribution, so the same input can produce different outputs. Setting temperature to 0, on APIs that still allow it, doesn't fully remove this on hosted inference, because results can depend on how your request is batched together with other users' requests (Thinking Machines, Sep 2025). Correctness is therefore a *rate* and not a yes/no property. A feature "works 94% of the time on this distribution of inputs."
 - **Shows up in:** structured outputs that are valid but wrong ([§06](06-structured-outputs.md)), self-consistency and voting ([§12](12-agentic-design-patterns.md)), and above all evals ([§26](26-evals.md)): datasets plus graders, run repeatedly, with regressions caught statistically.
 - **Ignore it and:** you ship because "it worked when I tried it." One success is a sample size of one. The data-engineering equivalent is declaring a pipeline correct because one run produced a plausible row count.
 

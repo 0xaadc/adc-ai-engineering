@@ -169,7 +169,7 @@ print("T=1.5, top_p=0.9:", [sample(tokens, logits, 1.5, top_p=0.9, rng=rng) for 
 At T=0.5, " Paris" gets 0.991 of the probability; at T=2.0, only 0.585. Eight samples at T=1.5, top-p 0.9 return " a" three times. Same logits, different decoding rule.
 
 **What hosted APIs let you change (Oct 2026).** Frontier APIs increasingly own these knobs:
-- **Anthropic** returns a 400 error for non-default `temperature`, `top_p` or `top_k` on Claude Opus 4.7 and later and on Sonnet 5.5.
+- **Anthropic** returns a 400 error for non-default `temperature`, `top_p` or `top_k` on every model released since Claude Opus 4.7, which covers all current model IDs.
 - **OpenAI**'s guide for its latest models says to remove `temperature` and `top_p` when reasoning effort is not `none`.
 - **Gemini** silently ignores all three on Gemini 3.6 Flash and newer.
 - **Open-weights servers** such as vLLM still expose them.
