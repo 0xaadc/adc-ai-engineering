@@ -49,7 +49,7 @@ Open and axial coding come from grounded theory in the social sciences, where ca
 | Called `update_address` before verifying identity | 6 | Code eval on the tool log, plus a guardrail |
 | Retrieval returned last year's policy | 5 | Bug fix in the index; no eval |
 
-This works because an LLM's failure space is unbounded and specific to your prompt, data and users, so generic metrics can miss your failures entirely. Shankar et al. (2024) observed **criteria drift**: "users need criteria to grade outputs, but grading outputs helps users define criteria." You can't fully write the rubric before seeing outputs. The FAQ's rules follow: write evaluators for "errors you discover, not errors you imagine," prefer binary pass/fail to 1–5 scales (adjacent points are subjective), and expect error analysis and evaluation to take 60–80% of development time.
+This works because an LLM's failure space is unbounded and specific to your prompt, data and users, so generic metrics can miss your failures entirely. Shankar et al. (2024) observed **criteria drift**: "users need criteria to grade outputs, but grading outputs helps users define criteria." You can't fully write the rubric before seeing outputs. The FAQ's rules follow: write evaluators for "errors you discover, not errors you imagine," prefer binary pass/fail to 1–5 scales (adjacent points are subjective), and budget for it: in their projects, error analysis and evaluation took 60–80% of development time.
 
 ### Graders: code, model and human
 

@@ -211,32 +211,39 @@ class Run:  # the parts one harness run wires together (see drive())
 def agent_loop(run: Run, it: int, system: str, messages: list, max_turns=4) -> str:
     """Call the model; while it asks for tools, run them and send the results back.
     Returns why it stopped: end_turn, max_turns, token_budget or another stop_reason."""
-    for turn in range(1, max_turns + 1):
-        if run.spent >= run.budget:
-            return "token_budget"
+    def ask(turn):  # one journaled, traced, stateless model call
         if run.compactor.needed(system, run.tools.definitions(), messages):
             messages[:] = run.compactor.compact(messages, run.trace)
         sid, t0 = f"i{it}.t{turn}", time.perf_counter()
         resp, replayed = run.log.step(sid, call_model, run.model, system,
                                       run.tools.definitions(), messages, sid)
         run.spent += total_input(resp["usage"]) + resp["usage"]["output_tokens"]
-        calls = [b for b in resp["content"] if b["type"] == "tool_use"]
+        calls = [f"{b['name']}({short(b['input'])})"
+                 for b in resp["content"] if b["type"] == "tool_use"]
         words = " ".join(b["text"] for b in resp["content"] if b["type"] == "text")
-        run.trace.record("model", sid, t0, replayed, resp["usage"], f"{resp['stop_reason']}: " + (
-            ", ".join(f"{c['name']}({short(c['input'])})" for c in calls) or repr(words[:60])))
+        run.trace.record("model", sid, t0, replayed, resp["usage"],
+                         f"{resp['stop_reason']}: " + (", ".join(calls) or repr(words[:70])))
         messages.append({"role": "assistant", "content": resp["content"]})  # all blocks, as-is
-        if resp["stop_reason"] != "tool_use":  # end_turn is a claim, not proof (§11)
-            return resp["stop_reason"]          # also max_tokens, refusal, pause_turn, ...
+        return resp
+
+    resp, turn = ask(1), 1
+    while resp["stop_reason"] == "tool_use":  # the model asked to act
         results = []
-        for call in calls:
+        for call in (b for b in resp["content"] if b["type"] == "tool_use"):
             t0 = time.perf_counter()
-            result, replayed = run.log.step(f"{sid}.{call['id']}", run.hooks.run_tool, call)
+            result, replayed = run.log.step(f"i{it}.t{turn}.{call['id']}", run.hooks.run_tool, call)
             note = ("ERROR: " if result["is_error"] else "ok: ") + result["content"]
             run.trace.record("tool", call["name"], t0, replayed, None,
                              note.replace("\n", " | "), result["is_error"])
             results.append(result)
         messages.append({"role": "user", "content": results})  # every result in ONE user turn
-    return "max_turns"
+        if turn == max_turns:
+            return "max_turns"
+        if run.spent >= run.budget:
+            return "token_budget"
+        resp, turn = ask(turn + 1), turn + 1
+    return resp["stop_reason"]  # end_turn is a claim, not proof (§11); or max_tokens, refusal...
+
 
 # ── Layer 5: hooks and permissions ───────────────────────────────────────────────
 DANGEROUS = re.compile(r"\brm\s+-\w*[rf]|\b(curl|wget|sudo|chmod)\b|[;&|`$>]")
@@ -316,7 +323,8 @@ class Compactor:
         # the kept turns' thinking blocks is rejected, so strip them (text and tool_use stay).
         # Compact only between tool rounds: here every tool_use already has its tool_result.
         thinking = ("thinking", "redacted_thinking")
-        tail = [{"role": m["role"], "content": [b for b in m["content"] if b["type"] not in thinking]}
+        tail = [{"role": m["role"],
+                 "content": [b for b in m["content"] if b["type"] not in thinking]}
                 for m in messages[cut:]]
         compacted = [{"role": "user", "content": summary}] + tail
         trace.record("compact", f"{len(messages)} -> {len(compacted)} msgs", t0, False, None,
@@ -455,7 +463,7 @@ def drive(task: Task, model, ws: Workspace, approver, max_iters=3, crash_after=N
         (ok, detail), replayed = run.log.step(f"i{it}.goal", goal_check, run, ws, task, it)
         verdict = ("DONE: " if ok else "NOT DONE: ") + detail
         run.trace.record("goal", f"i{it}", t0, replayed, None, f"after {stop}, {verdict}", not ok)
-        if ok or stop == "token_budget":
+        if ok or run.spent >= run.budget:  # done, or the hard spend cap is reached
             break
         run.log.step(f"i{it}.progress", memory.append,
                      f"[harness] iteration {it} ended ({stop}); goal check failed: {detail}")
@@ -476,7 +484,8 @@ def main():
     if a.real and not os.environ.get("ANTHROPIC_API_KEY"):
         sys.exit("--real needs ANTHROPIC_API_KEY set in the environment")
     root = a.workspace or Path(tempfile.gettempdir(), "mini_harness", "real" if a.real else "stub")
-    ask = lambda call: input(f"  allow {call['name']}({call['input'].get('path')!r})? [y/N] ") == "y"
+    ask = lambda call: input(f"  allow {call['name']}"
+                             f"({call['input'].get('path')!r})? [y/N] ").strip() == "y"
     ok = drive(TASK, AnthropicModel() if a.real else StubModel(SCRIPT), Workspace(root, a.fresh),
                ask if a.ask else auto_approve, crash_after=a.crash_after)
     sys.exit(0 if ok else 1)

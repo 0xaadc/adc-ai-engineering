@@ -40,8 +40,8 @@ Each system step exists because the step before it left a problem unsolved, and 
 | 2023 | Vector database boom; RAG goes mainstream | Searching private data by meaning | [§08](08-embeddings-and-search.md) |
 | Jun 2023 | Function calling (OpenAI) | Structured tool requests the harness can execute | [§10](10-tool-use.md) |
 | Jun 2023 | "The Rise of the AI Engineer" (swyx) | Naming the discipline | [§01](01-first-principles.md) |
-| 2023 | JSON mode | Machine-readable output, without a guarantee yet | [§06](06-structured-outputs.md) |
 | Sep–Oct 2023 | CoALA; MemGPT | A vocabulary and architecture for agent memory | [§17](17-memory.md) |
+| Nov 2023 | JSON mode (OpenAI DevDay) | Machine-readable output, without a guarantee yet | [§06](06-structured-outputs.md) |
 | Jan 2024 | AlphaCodium ("flow engineering") | Multi-stage, test-driven flows beat single prompts | [§38](38-disciplines-map.md) |
 | Jan 2024 | LangGraph | Agent workflows as stateful graphs | [§14](14-graph-engineering.md) |
 | Mar 2024 | Ng's four agentic patterns | A first common vocabulary for agent patterns | [§12](12-agentic-design-patterns.md) |

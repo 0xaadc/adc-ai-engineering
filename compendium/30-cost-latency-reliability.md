@@ -31,7 +31,7 @@ Agents multiply tokens. Anthropic measured agents at about 4× the tokens of cha
 ```python
 # USD per million tokens, Claude API list prices as of Oct 2026 (check the pricing page).
 PRICES = {  # base input, 5-min cache write, cache read, output
-    "claude-haiku-5-5":  {"in": 0.10, "write": 0.125, "read": 0.01, "out": 0.50},
+    "claude-haiku-5-5":  {"in": 0.10, "write": 0.125, "read": 0.01, "out": 0.50},  # prompts <= 100K
     "claude-sonnet-5-5": {"in": 2.00, "write": 2.50,  "read": 0.10, "out": 10.00},
     "claude-opus-5-5":   {"in": 4.00, "write": 5.00,  "read": 0.20, "out": 20.00},
 }
@@ -94,8 +94,8 @@ Anthropic's cost guide splits levers into **free wins**, which cut spend without
 Cache-aware layout is a stability ordering, like partitioning a table by the column you filter on most:
 
 ```text
-[tools: sorted, fixed] [system: frozen, no timestamps] [docs/few-shot] ◆ [history ...] ◆ [new turn]
- └──────────── changes never ─────────────┘└ per deploy ┘   └── grows append-only ──┘
+[tools: sorted] [system: frozen, no timestamps] [shared docs] ◆ [history ...] ◆ [new turn]
+└────────────── identical on every request ──────────────┘   └ append-only ┘   └ volatile ┘
 ◆ = cache breakpoint. Any byte change at position N invalidates everything after N.
 ```
 
@@ -109,7 +109,7 @@ Batching ([§03](03-inference.md)) is the provider's core economic lever. A batc
 - **OpenAI Batch API (GA):** 50% off, a 24-hour completion window, and a separate rate-limit pool.
 - **OpenAI flex processing (Preview, beta, limited models):** set `service_tier: "flex"` on an ordinary synchronous call and pay Batch rates, in exchange for slower responses and occasional uncharged `429 Resource Unavailable` errors. OpenAI suggests backing off, or retrying on the standard tier when finishing matters more than price.
 
-Evals, backfills, enrichment and nightly jobs all qualify.
+Use them for evals, backfills, enrichment and nightly jobs: anything no user is waiting on.
 
 #### Model choice, routing and cascades
 

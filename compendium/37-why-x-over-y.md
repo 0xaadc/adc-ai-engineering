@@ -196,13 +196,13 @@ Each tradeoff below gives the conditions for each side, then the principle that 
 
 - **Choose a hosted API when** you want frontier quality, your traffic varies, and you don't want to run GPUs. Providers batch many customers onto shared hardware, which is hard to match at small scale.
 - **Choose self-hosted open weights when** data can't leave your environment, traffic is high and steady enough to keep GPUs busy, you need custom constrained decoding or fine-tunes the APIs don't offer, or you need a pinned model that never changes under you.
-- **Principle:** P10. The economics turn on utilization, because an idle GPU costs as much as a busy one. Count operations and the eval work that quantization needs. Check first whether a hosted model offered inside your own cloud account meets the data requirement. Mechanism: [§31](31-open-weights-self-hosting.md), [§03](03-inference.md).
+- **Principle:** P10. The economics turn on utilization, because an idle GPU costs as much as a busy one. Count operations and the eval work that quantization needs, and compare against the *same* model hosted, not a different frontier model. Middle paths exist: a hosted open-weight API (cheap tokens, an exit to self-hosting later) or a hosted model offered inside your own cloud account. Mechanism: [§31](31-open-weights-self-hosting.md), [§03](03-inference.md).
 
 ### 21. Cascaded voice vs speech-to-speech
 
 - **Choose cascaded (speech-to-text → LLM → text-to-speech) when** you need inspectable text at every step: regulated flows, heavy tool use, audit logs, evals on transcripts, and the freedom to swap any component or use any text model.
 - **Choose speech-to-speech when** conversational feel matters most: the lowest latency, natural interruptions, and tone preserved end to end. It is harder to control, log and test.
-- **Principle:** P10 (latency adds up across chained stages) against P4 and P8 (what you can measure and check). Mechanism: [§25](25-voice-agents.md), [§07](07-multimodal.md).
+- **Principle:** P10 (latency adds up across chained stages) against P4 and P8 (what you can measure and check). Streaming every stage narrows the latency gap. A newer middle path splits the talker from the thinker: a speech-to-speech front end delegates reasoning and tool calls to a text agent behind it. Mechanism: [§25](25-voice-agents.md), [§07](07-multimodal.md).
 
 ### 22. Framework vs build your own
 
@@ -245,9 +245,9 @@ A decision bank only works if everyone in the room means the same thing by the w
 
 ## Check your understanding
 
-**Q: You're building an internal Q&A bot over 300 pages of HR policy that every employee may read, updated quarterly, with modest traffic. Long context or RAG, and why?**
+**Q: You're building an internal Q&A bot over 300 pages of HR policy that every employee may read, updated quarterly, answering a few hundred questions a day. Long context or RAG, and why?**
 
-Long context with prompt caching. The corpus is small, stable and readable by everyone, so RAG's main advantages (scale, freshness, per-user filtering) don't apply, and caching makes the repeated prefix cheap (P10). You skip a retrieval pipeline that could miss the right clause. Switch to RAG if the corpus grows large enough for context rot to show in your evals (P3), or if some documents become restricted to certain employees.
+Long context with prompt caching. The corpus is small, stable and readable by everyone, so RAG's main advantages (scale, freshness, per-user filtering) don't apply, and caching makes the repeated prefix cheap as long as questions arrive within the cache lifetime (P10). You also skip a retrieval pipeline that could miss the right clause. Switch to RAG if traffic is too sparse to keep the cache warm and the per-question cost hurts, if context rot shows in your evals as the corpus grows (P3), or if some documents become restricted to certain employees.
 
 **Q: You're building search for a support assistant where customers paste error codes like "E-4012" alongside natural-language questions. Vector or hybrid search, and why?**
 

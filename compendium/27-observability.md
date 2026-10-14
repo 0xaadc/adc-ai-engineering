@@ -13,7 +13,7 @@ Classic application monitoring (latency, error rate, a stack trace) assumes fail
 1. **The model is stateless (P2).** Everything it knew came in the request: system prompt, history, retrieved passages, tool results. That request *is* the explanation of its behavior, and if you didn't record it, you can't explain the behavior later.
 2. **Output is sampled (P4).** Rerunning the request may not reproduce the failure, so you have to capture it when it happens.
 3. **Agents choose their own path (P7) and errors compound (P8).** To find which of 30 steps went wrong, you need the whole tree of steps, not the final answer.
-4. **Cost and latency vary per request (P10).** The same feature can cost 10× more when the agent takes more steps or the cache misses, and only per-request accounting shows it.
+4. **Cost and latency vary per request (P10).** The same feature can cost several times more when the agent takes extra steps or the cache misses, and only per-request accounting shows it.
 
 Data engineers know this gap as the difference between "the job succeeded" and "the data is right," the gap data-observability tools fill.
 
@@ -60,7 +60,7 @@ It's the bronze-layer habit from a medallion architecture: keep the raw record b
 The GenAI conventions standardize:
 
 - **Span names and kinds.** An inference span is named `{gen_ai.operation.name} {gen_ai.request.model}`, such as `chat claude-sonnet-5-5`, with kind CLIENT. Tool spans are `execute_tool {gen_ai.tool.name}` (INTERNAL), and agent spans `invoke_agent {gen_ai.agent.name}`.
-- **Operation names** such as `chat`, `generate_content`, `embeddings`, `retrieval`, `execute_tool`, `create_agent` and `invoke_agent`.
+- **Operation names** such as `chat`, `generate_content`, `text_completion`, `embeddings`, `retrieval`, `execute_tool`, `create_agent`, `invoke_agent` and `invoke_workflow`.
 - **Attributes,** as in the table above, with content capture opt-in.
 - **Events,** including `gen_ai.evaluation.result` (with `gen_ai.evaluation.name`, `gen_ai.evaluation.score.value`, `.score.label` and `.explanation`), so online eval results attach to traces in a standard shape.
 - **Metrics** for client operation duration and token usage, and server-side time to first token and time per output token.
@@ -235,11 +235,11 @@ Data observability watches freshness, volume, schema, distribution and lineage. 
 
 | Tool | What it is | License and hosting | OpenTelemetry | Worth knowing |
 |---|---|---|---|---|
-| LangSmith (LangChain) | Tracing, datasets, offline and online evals | Proprietary SaaS; self-hosting is an Enterprise add-on | Accepts OTel traces | Deepest LangChain and LangGraph integration; works without them |
-| Langfuse | Tracing, prompt management, evals | Open source (MIT outside `ee/` directories); cloud or self-hosted | Built on OTel | Acquired by ClickHouse, which says no licensing changes are planned |
+| LangSmith (LangChain) | Tracing, datasets, offline and online evals | Proprietary SaaS; self-hosting is an Enterprise add-on | Accepts OTel traces | Tight LangChain and LangGraph integration; also traces other frameworks |
+| Langfuse | Tracing, prompt management, evals | Open source (MIT outside `ee/` directories); cloud or self-hosted | Built on OTel | Acquired by ClickHouse; Langfuse says no licensing changes are planned |
 | Arize Phoenix | Tracing, evals, experiments | Source-available (Elastic License 2.0), self-hosted; managed version is Arize AX | OTel with OpenInference conventions | Same instrumentation works for Phoenix and AX |
-| Braintrust | Evals and experiments plus production logging | Proprietary SaaS; self-hosted data plane on Enterprise | Accepts OTLP traces and logs | Eval-first design |
-| W&B Weave (CoreWeave) | Tracing and evals | Apache-2.0 SDK; hosted service | OTel-compatible ingest | CoreWeave's docs name Agent Lens as Weave's successor |
+| Braintrust | Evals and experiments plus production logging | Proprietary SaaS; self-hosted data plane on Enterprise | Accepts OTLP traces and logs | Offline evals, experiments and production logs in one platform |
+| W&B Weave (CoreWeave) | Tracing and evals | Apache-2.0 repository; hosted or dedicated instances | OTel-compatible ingest | CoreWeave's docs name Agent Lens as Weave's successor |
 | Datadog Agent Observability | LLM and agent traces and evals inside Datadog | Proprietary SaaS | Ingests OTel GenAI conventions 1.37+ or OpenInference | Docs still live under `llm_observability`; natural fit if you already use Datadog APM |
 
 Choose on data residency and hosting, whether you need evals and datasets tied to traces, your existing stack, and how cleanly the tool ingests OTel, which decides how hard leaving will be.

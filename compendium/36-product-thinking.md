@@ -26,14 +26,14 @@ Start from the failure, not the feature. An AI feature is worth building where a
 
 **2. Tolerance for errors, and the cost of each kind.** Errors don't all cost the same. Ask four questions about each type:
 
-- **Visible or silent?** A wrong autocomplete is seen and ignored; a wrong number in a contract summary isn't seen.
+- **Visible or silent?** A wrong autocomplete is seen and ignored; a wrong number in a contract summary goes unnoticed.
 - **Reversible or not?** A draft can be fixed; a refund, a deletion or a trade can't be undone.
 - **Which direction is worse?** For fraud screening, a missed fraud costs far more than a false alarm. You tune the threshold to that asymmetry, so you need the price of each direction.
 - **Who absorbs it?** An analyst who knows the tool is fallible, or a customer who takes the answer as your company's word.
 
 Data engineers know error budgets from SLOs, and the idea transfers. Set an acceptable failure rate for each error type before you build, and design so failures land on the cheap side.
 
-**3. "The human in the loop is the product."** Many successful AI products aren't automation. Code completion, draft replies for support agents, and first-pass SQL for analysts all follow one pattern. The AI proposes and a skilled person accepts, edits or rejects, so what the product sells is *speed for that person*. The review step is the design, not a crutch to remove later. It makes a 70%-accurate model useful because the person catches the other 30%, and every accept, edit or reject is a free quality label for your evals ([§28](28-data-flywheels.md)).
+**3. "The human in the loop is the product."** Many successful AI products aren't automation. Code completion, draft replies for support agents, and first-pass SQL for analysts all follow one pattern. The AI proposes and a skilled person accepts, edits or rejects, so what the product sells is *speed for that person*. The review step is the design, not a crutch to remove later. It makes a 70%-accurate model useful because the person catches the other 30%. Every accept, edit or reject is also a free quality signal. These signals are biased, so treat them as hints for which traces to review, but edits are rich training targets ([§28](28-data-flywheels.md)).
 
 The evidence supports augmentation, with a warning attached:
 

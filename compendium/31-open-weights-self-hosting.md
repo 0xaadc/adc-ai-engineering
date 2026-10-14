@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-The open-weight story starts with Meta's LLaMA (Feb 2023), released to researchers, whose weights spread publicly within about a week. Llama 2 (Jul 2023) allowed commercial use, and Mistral 7B (Sep 2023) shipped under Apache 2.0. From 2024 the wave broadened: DeepSeek-V3 (Dec 2024) and R1 (Jan 2025), OpenAI's gpt-oss (Aug 2025), and, as of Oct 2026, active families from Qwen, DeepSeek, Mistral, Google's Gemma, Moonshot's Kimi, Z.ai's GLM, NVIDIA's Nemotron and IBM's Granite. Meta's newest open LLM on Hugging Face is still Llama 4 (Apr 2025). [§30](30-cost-latency-reliability.md) left a problem: past some scale, or under strict privacy rules, renting someone else's model stops making sense. This section is about running the model yourself. It leans on P10 (the serving economics), P5 (fine-tunes need weights), P11 (the interface that makes models swappable) and P12 (whatever you host will be superseded within months).
+The open-weight story starts with Meta's LLaMA (Feb 2023), released to researchers, whose weights leaked publicly within weeks. Llama 2 (Jul 2023) allowed commercial use, and Mistral 7B (Sep 2023) shipped under Apache 2.0. From 2024 the wave broadened: DeepSeek-V3 (Dec 2024) and R1 (Jan 2025), OpenAI's gpt-oss (Aug 2025), and, as of Oct 2026, active families from Qwen, DeepSeek, Mistral, Google's Gemma, Moonshot's Kimi, Z.ai's GLM, NVIDIA's Nemotron and IBM's Granite. Meta's newest Llama release on Hugging Face is still Llama 4 (Apr 2025). [§30](30-cost-latency-reliability.md) left a problem: past some scale, or under strict privacy rules, renting someone else's model stops making sense. This section is about running the model yourself. It leans on P10 (the serving economics), P5 (fine-tunes need weights), P11 (the interface that makes models swappable) and P12 (whatever you host will be superseded within months).
 
 ## Why this exists
 
@@ -37,9 +37,9 @@ The license decides what you may do. Read the one on each checkpoint's model car
 |---|---|---|
 | Apache 2.0 (Qwen 3.x, gpt-oss, Gemma 4, Mistral Small 4) | Commercial use, modification, redistribution | Attribution and notice files; patent terms |
 | MIT (DeepSeek V4) | Nearly anything | Attribution |
-| Custom community licenses (Llama 4, Kimi, GLM, Mistral Medium) | Usually commercial use, with conditions | Llama 4: a separate license from Meta above 700 million monthly active users, "Built with Llama" display, derivative names must start with "Llama", plus an acceptable-use policy |
+| Custom licenses (Llama 4, Kimi, GLM, Mistral Medium) | Varies, from broad commercial use with conditions to narrower terms | Llama 4: a separate license from Meta above 700 million monthly active users, "Built with Llama" display, derivative names must start with "Llama", plus an acceptable-use policy |
 
-One consequence is easy to miss: weights are a snapshot. Nobody silently updates them, which is great for reproducibility, but nobody patches their safety behavior either.
+One consequence is easy to miss: the file you downloaded never changes underneath you. That is great for reproducibility, but it also means no safety fixes arrive unless you pull and re-evaluate a new release.
 
 Many current open models are **mixture-of-experts (MoE)**: each token runs through only a few "expert" sub-networks. gpt-oss-120b has 117B parameters but 5.1B active per token. For serving, that splits the cost: *memory* scales with total parameters, because every expert must be loaded, while *compute per token* scales with active parameters.
 
@@ -141,7 +141,7 @@ Architecture changes the KV term a lot. gpt-oss-120b's config has 36 layers with
 ### Hosted open-weight models: the middle path
 
 You can get open weights without running GPUs:
-- **Cloud platforms.** Amazon Bedrock added 18 fully managed open-weight models in Dec 2025 and more in Feb 2026. Google Cloud's Model Garden serves open models such as DeepSeek and Qwen as managed APIs. Microsoft's Foundry catalog also lists open models **(⚠ verify)**.
+- **Cloud platforms.** Amazon Bedrock added 18 fully managed open-weight models in Dec 2025 and more in Feb 2026. Google Cloud's Model Garden serves open models such as DeepSeek, GLM and Llama as managed APIs. Microsoft's Foundry catalog also lists open models **(⚠ verify)**.
 - **Inference APIs** such as Together, Fireworks, Groq, Cerebras, Baseten, DeepInfra and Hugging Face Inference Providers, often reached through OpenRouter.
 - **Dedicated endpoints**, where a provider runs your chosen checkpoint (or fine-tune) on reserved GPUs, sit between serverless and self-hosting.
 
@@ -311,7 +311,7 @@ Every expert must sit in memory, but each token runs only about 5.1B active para
 - Publisher model listings on Hugging Face (release dates and license tags, checked Oct 2026): https://huggingface.co/meta-llama , https://huggingface.co/Qwen , https://huggingface.co/deepseek-ai , https://huggingface.co/mistralai , https://huggingface.co/google , https://huggingface.co/moonshotai , https://huggingface.co/zai-org , https://huggingface.co/allenai
 - Open Source Initiative, Open Source AI Definition 1.0: https://opensource.org/ai/open-source-ai-definition
 - Kwon et al., "Efficient Memory Management for LLM Serving with PagedAttention" (2023): https://arxiv.org/abs/2309.06180
-- vLLM README: https://github.com/vllm-project/vllm ; OpenAI-compatible server docs: https://docs.vllm.ai/en/latest/serving/openai_compatible_server/
+- vLLM README: https://github.com/vllm-project/vllm ; OpenAI-compatible server docs (endpoints, Anthropic Messages API, `--api-key` limits): https://github.com/vllm-project/vllm/blob/main/docs/serving/online_serving/openai_compatible_server.md ; `gpu_memory_utilization` default: https://github.com/vllm-project/vllm/blob/main/vllm/config/cache.py
 - Zheng et al., "SGLang: Efficient Execution of Structured Language Model Programs" (2023): https://arxiv.org/abs/2312.07104 ; https://github.com/sgl-project/sglang
 - Hugging Face, Text Generation Inference (maintenance mode notice): https://huggingface.co/docs/text-generation-inference/index
 - llama.cpp: https://github.com/ggml-org/llama.cpp ; GGUF specification: https://github.com/ggml-org/ggml/blob/master/docs/gguf.md

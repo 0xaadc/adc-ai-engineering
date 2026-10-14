@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-This section starts the system thread and the prompt-engineering era (2020–2023). Part 1 explained the model, and [§04](04-reasoning-models.md) ended in 2025; now we rewind to 2020. On Jun 11, 2020, OpenAI opened the GPT-3 API in private beta as a "text in, text out" interface: you sent a prompt string and the model continued it. On Mar 1, 2023, Chat Completions replaced the string with a list of role-tagged messages. Anthropic's Messages API took the same shape, replacing its older Text Completions format of `\n\nHuman:` / `\n\nAssistant:` turns (launch date **⚠ verify**). This section covers what goes over the wire, why the API forgets everything between calls, and which prompt techniques work, and why.
+This section starts the system thread and the prompt-engineering era (2020–2023). Part 1 explained the model, and [§04](04-reasoning-models.md) ended in 2025; now we rewind to 2020. On Jun 11, 2020, OpenAI opened the GPT-3 API in private beta as a "text in, text out" interface: you sent a prompt string and the model continued it. On Mar 1, 2023, Chat Completions replaced the string with a list of role-tagged messages. Anthropic's Messages API (Dec 2023, when its SDKs added the endpoint) took the same shape, replacing its older Text Completions format of `\n\nHuman:` / `\n\nAssistant:` turns. This section covers what goes over the wire, why the API forgets everything between calls, and which prompt techniques work, and why.
 
 ## Why this exists
 
@@ -72,7 +72,7 @@ The response (values illustrative):
 
 ### Roles and the system prompt
 
-- **`messages`** holds `user` and `assistant` turns. The first must be `user`, and consecutive same-role turns are merged. `content` is a string or a list of blocks: text, images, documents, tool calls and results ([§10](10-tool-use.md)), and thinking.
+- **`messages`** holds `user` and `assistant` turns. Consecutive same-role turns are merged, and since Oct 2024 the first turn no longer has to be `user`. `content` is a string or a list of blocks: text, images, documents, tool calls and results ([§10](10-tool-use.md)), and thinking.
 - **`system`** is a top-level field, not a message. It holds the developer's standing instructions: role, rules, format, background. Post-training gives it more weight than user text. Newer models, including Claude Opus 5.5 and Claude Sonnet 5.5, also accept `role: "system"` messages *inside* `messages` **(GA)** for operator instructions that arrive mid-conversation.
 - **Everything is rendered into one sequence,** in the order tools, then system, then messages, and the model continues from the end:
 
@@ -232,7 +232,7 @@ Statelessness means resending long identical prefixes: system prompts, tool defi
 }
 ```
 
-The cache lives 5 minutes, refreshed free on each hit, or 1 hour at a higher write price. Writes cost 1.25× the base input price (2× for 1 hour). Reads cost 0.1× base, or 0.05× on Claude Opus 5.5 and Claude Sonnet 5.5 (Oct 2026). Any byte change invalidates everything after it, and a timestamp at the top of the system prompt is the classic mistake. Very short prefixes aren't cached at all. Verify hits with `usage.cache_read_input_tokens`. [§16](16-context-engineering.md) covers designing around the cache, and [§30](30-cost-latency-reliability.md) the cost math.
+The cache lives 5 minutes, refreshed free on each hit, or 1 hour at a higher write price. Writes cost 1.25× the base input price (2× for 1 hour). Reads cost 0.1× base, or 0.05× on Claude Opus 5.5 and Claude Sonnet 5.5 and 0.025× on Claude Fable 5.1 (Oct 2026). Any byte change invalidates everything after it, and a timestamp at the top of the system prompt is the classic mistake. Very short prefixes aren't cached at all. Verify hits with `usage.cache_read_input_tokens`. [§16](16-context-engineering.md) covers designing around the cache, and [§30](30-cost-latency-reliability.md) the cost math.
 
 ### Limits of prompt engineering (P4)
 
@@ -314,6 +314,8 @@ Tags help the model tell instructions from data, but every token, tagged or not,
 - OpenAI, "Introducing ChatGPT and Whisper APIs" (Mar 1, 2023): https://openai.com/index/introducing-chatgpt-and-whisper-apis/
 - Brown et al., "Language Models are Few-Shot Learners" (GPT-3, 2020): https://arxiv.org/abs/2005.14165
 - Anthropic docs, Messages API reference: https://platform.claude.com/docs/en/api/messages
+- Anthropic Python SDK changelog (0.8.0, Dec 19, 2023: "add messages endpoint"): https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md
+- Anthropic docs, API release notes (Oct 8, 2024: turn-ordering rules loosened): https://platform.claude.com/docs/en/release-notes/api
 - Anthropic docs, Using the Messages API: https://platform.claude.com/docs/en/build-with-claude/working-with-messages
 - Anthropic docs, Streaming: https://platform.claude.com/docs/en/build-with-claude/streaming
 - Anthropic docs, Prompt caching: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
