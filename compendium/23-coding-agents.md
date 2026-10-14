@@ -208,7 +208,7 @@ The tools she tested:
 - **GitHub's Spec Kit** (Sep 2, 2025) runs Constitution → Specify → Plan → Tasks. The **constitution** is a rules file of "immutable" principles.
 - **Tessl** explores spec-as-source, stamping generated files `// GENERATED FROM SPEC - DO NOT EDIT`.
 
-A spec front-loads intent into context and gives reviewers something to check against. Böckeler also found the costs. Kiro turned a small bug into "4 'user stories' with a total of 16 acceptance criteria." Spec Kit's markdown was "very verbose and tedious to review." Agents still ignored instructions, which gives "a false sense of control." She compares spec-as-source to model-driven development, which "never took off for business applications," with non-determinism added on top. Use specs for medium-sized, well-understood features and skip them for small fixes.
+A spec front-loads intent into context and gives reviewers something to check against. Böckeler also found the costs. Kiro turned a small bug into "4 'user stories' with a total of 16 acceptance criteria." Spec Kit's markdown was "very verbose and tedious to review." Agents still ignored instructions, so she asks whether all that structure gives a "false sense of control." She compares spec-as-source to model-driven development, which "never took off for business applications," with non-determinism added on top. Use specs for medium-sized, well-understood features and skip them for small fixes.
 
 ### Compound engineering
 
@@ -235,7 +235,7 @@ On Feb 23, 2026, OpenAI stopped reporting Verified, for three reasons:
 - **Flawed tests.** An audit of 138 often-failed tasks found 59.4% had material problems: tests that "reject functionally correct submissions," or underspecified descriptions.
 - **Contamination.** Frontier models could reproduce gold patches from memory, because the test answers were in their training data.
 
-OpenAI now recommends Scale's SWE-bench Pro, though later audits reportedly questioned its grading too **(⚠ verify)**. **Terminal-Bench** (May 2025) covers broader terminal work: each task is a Docker environment with a human-written solution and tests. Version 2.0 (Nov 2025) has 89 tasks. By version 4.0 (Aug 2026) it was maintained continuously, dropping tasks once every frontier model solves them. Its integrity notes record reward hacking, such as an agent that "curls the solution from the internet and includes it in its AGENTS.md."
+OpenAI then recommended Scale's SWE-bench Pro, but on Jul 8, 2026 its own audit estimated that about 30% of Pro's tasks are broken (overly strict tests, misleading or underspecified prompts), and it retracted that recommendation. **Terminal-Bench** (May 2025) covers broader terminal work: each task is a Docker environment with a human-written solution and tests. Version 2.0 (Nov 2025) has 89 tasks. By version 4.0 (Aug 2026) it was maintained continuously, dropping tasks once every frontier model solves them. Its integrity notes record reward hacking, such as an agent that "curls the solution from the internet and includes it in its AGENTS.md."
 
 The general lessons: a score measures a model-plus-harness pair ([§19](19-harness-engineering.md)), public tasks leak into training data, and tests can be wrong in both directions. No benchmark measures maintainability or review cost. Use benchmarks to shortlist tools, then decide with your own tasks ([§26](26-evals.md)).
 
@@ -344,11 +344,16 @@ Worktrees prevent file collisions, so you'd get five branches of plausible diffs
 - OpenAI, "Introducing o3 and o4-mini" (Codex CLI, Apr 16, 2025): https://openai.com/index/introducing-o3-and-o4-mini/
 - OpenAI, "Harness engineering: leveraging Codex in an agent-first world" (Feb 2026): https://openai.com/index/harness-engineering/
 - GitHub, "Introducing GitHub Copilot" (Jun 29, 2021): https://github.blog/news-insights/product-news/introducing-github-copilot-ai-pair-programmer/
+- GitHub, "GitHub Copilot X: The AI-powered developer experience" (Copilot Chat announced, Mar 22, 2023): https://github.blog/news-insights/product-news/github-copilot-x-the-ai-powered-developer-experience/
+- GitHub, "GitHub Copilot Chat now generally available for organizations and individuals" (Dec 29, 2023): https://github.blog/news-insights/product-news/github-copilot-chat-now-generally-available-for-organizations-and-individuals/
+- Cursor changelog (earliest entries Mar 2023): https://cursor.com/changelog
 - GitHub, "GitHub Copilot: The agent awakens" (Feb 6, 2025): https://github.blog/news-insights/product-news/github-copilot-the-agent-awakens/
 - GitHub, "GitHub Copilot: Meet the new coding agent" (May 19, 2025): https://github.blog/news-insights/product-news/github-copilot-meet-the-new-coding-agent/
 - Google, "Gemini CLI: your open-source AI agent" (Jun 25, 2025): https://blog.google/technology/developers/introducing-gemini-cli-open-source-ai-agent/
 - Cognition, "Introducing Devin" (Mar 2024): https://cognition.ai/blog/introducing-devin
 - AGENTS.md: https://agents.md
+- Linux Foundation, "Linux Foundation Announces the Formation of the Agentic AI Foundation" (Dec 9, 2025; AGENTS.md "released by OpenAI in August 2025"): https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation
+- AAIF, AGENTS.md project page (first commit Aug 19, 2025): https://aaif.io/projects/agents-md/
 - Yang et al., "SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering" (May 2024): https://arxiv.org/abs/2405.15793
 - Aider docs, Edit formats: https://aider.chat/docs/more/edit-formats.html
 - Cline, "Why Cline Doesn't Index Your Codebase" (May 27, 2025): https://cline.bot/blog/why-cline-doesnt-index-your-codebase-and-why-thats-a-good-thing
@@ -365,6 +370,7 @@ Worktrees prevent file collisions, so you'd get five branches of plausible diffs
 - Jimenez et al., "SWE-bench" (Oct 2023): https://arxiv.org/abs/2310.06770
 - OpenAI, "Introducing SWE-bench Verified" (Aug 2024): https://openai.com/index/introducing-swe-bench-verified/
 - OpenAI, "Why we no longer evaluate SWE-bench Verified" (Feb 23, 2026): https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/
+- OpenAI, "Separating signal from noise in coding evaluations" (SWE-bench Pro audit, Jul 8, 2026): https://openai.com/index/separating-signal-from-noise-coding-evaluations/
 - Merrill et al., "Terminal-Bench" (Jan 2026): https://arxiv.org/abs/2601.11868
 - Terminal-Bench news (2.0, 4.0, leaderboard integrity): https://www.tbench.ai/news
 - METR, early-2025 developer productivity RCT (Jul 10, 2025): https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/
