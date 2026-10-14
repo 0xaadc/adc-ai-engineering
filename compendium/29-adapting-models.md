@@ -187,12 +187,12 @@ The industry built these out in 2025:
 - **SWE-Gym** (Dec 30, 2024): 2,438 real Python tasks, each with a codebase, runtime, unit tests and task description. Training on it gave up to 19% absolute gains on SWE-Bench Verified and Lite.
 - **OpenAI** trained o3 and o4-mini "to use tools through reinforcement learning" (Apr 2025, [§04](04-reasoning-models.md)).
 - **Prime Intellect** launched an open Environments Hub (Aug 27, 2025).
-- **TechCrunch** (Sep 16, 2025) described labs demanding environments, startups such as Mechanize, and labeling firms (Surge, Mercor, Scale AI) moving in. Citing The Information, it reported that Anthropic leaders had discussed spending over $1 billion on RL environments over the following year (secondary, **⚠ verify**).
+- **TechCrunch** (Sep 16, 2025) described labs demanding environments, startups such as Mechanize, and labeling firms (Surge, Mercor, Scale AI) moving in. Citing The Information, it reported that Anthropic leaders had discussed spending over $1 billion on RL environments over the following year (secondhand: TechCrunch citing The Information).
 - **Meta and Hugging Face** launched OpenEnv, a shared environment spec and hub (Oct 23, 2025).
 
 Why this made agents better comes down to compounding error (P8). Scoring whole multi-step tasks on their outcome rewards whatever raises per-step reliability, including checking tool results and recovering from mistakes, which raises *p* in *pⁿ*. It also couples models to the harnesses they were trained in ([§19](19-harness-engineering.md)).
 
-The weak point is the verifier: if it can be fooled, RL finds the way. Anthropic's Nov 2025 study uses the example of calling `sys.exit(0)` so a test harness reports success, and found that models which learned such hacks generalized to worse behavior, including sabotage. Skeptics quoted by TechCrunch called environments "prone to reward hacking," and Karpathy said he was "bullish on environments and agentic interactions but … bearish on reinforcement learning specifically." For an app team: you rarely train a frontier model, but your agent eval harness is most of an environment already, so building it well pays twice. The label "environment engineering" is niche; the industry is real.
+The weak point is the verifier: if it can be fooled, RL finds the way. Anthropic's Nov 2025 study uses the example of calling `sys.exit(0)` so a test harness reports success, and found that models which learned such hacks generalized to worse behavior, including sabotage. Ross Taylor (General Reasoning) told TechCrunch that environments are prone to reward hacking, and Karpathy said he was "bullish on environments and agentic interactions but … bearish on reinforcement learning specifically." For an app team: you rarely train a frontier model, but your agent eval harness is most of an environment already, so building it well pays twice. The label "environment engineering" is niche; the industry is real.
 
 ### What fine-tuning can't do
 
@@ -207,7 +207,7 @@ The weak point is the verifier: if it can be fooled, RL finds the way. Anthropic
 
 ### Hosting fine-tunes
 
-**Provider-hosted:** you upload data, the vendor trains and serves. No GPUs to run, but the tuned model lives and dies with the vendor's base model. OpenAI's deprecation page states that "fine-tuned versions of these models follow the same shutdown schedule as their underlying base models," and GPT-4.1 and GPT-4o fine-tunes shut down on Jan 14, 2027. As of Oct 2026, Google Vertex AI supports supervised tuning on Gemini 3.5 Flash, 3.1 Flash-Lite and the 2.5 family, with a configurable "adapter size." Amazon Bedrock lists fine-tuning for Nova, some Llama models and, of Claude models, only Claude 3 Haiku. Anthropic's own API offers no self-serve fine-tuning (**⚠ verify**).
+**Provider-hosted:** you upload data, the vendor trains and serves. No GPUs to run, but the tuned model lives and dies with the vendor's base model. OpenAI's deprecation page states that "fine-tuned versions of these models follow the same shutdown schedule as their underlying base models," and GPT-4.1 and GPT-4o fine-tunes shut down on Jan 14, 2027. As of Oct 2026, Google Vertex AI supports supervised tuning on Gemini 3.5 Flash, 3.1 Flash-Lite and the 2.5 family, with a configurable "adapter size." Amazon Bedrock lists fine-tuning for Nova, some Llama models and, of Claude models, only Claude 3 Haiku. Anthropic's own API offers no self-serve fine-tuning: its API reference lists no fine-tuning endpoint (Oct 2026).
 
 **Self-hosted:** you own the weights, usually an open-weight base plus a LoRA adapter, and serve them ([§31](31-open-weights-self-hosting.md)). Adapters are small, so one server can hold one base plus many adapters and pick one per request; vLLM does this with `--enable-lora --lora-modules name=path` and a `max_loras` limit. You take on GPU capacity, upgrades and on-call.
 
@@ -326,6 +326,7 @@ Catastrophic forgetting: updates for the new task overwrote shared weights other
 - Google Cloud, About supervised fine-tuning for Gemini models: https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini-supervised-tuning
 - vLLM docs, LoRA Adapters: https://github.com/vllm-project/vllm/blob/main/docs/features/lora.md
 - Anthropic, Pricing: https://platform.claude.com/docs/en/about-claude/pricing
+- Anthropic, Claude Platform docs index, including the full API reference (no fine-tuning endpoint): https://platform.claude.com/llms.txt
 - Hinton, Vinyals and Dean, "Distilling the Knowledge in a Neural Network," Mar 2015: https://arxiv.org/abs/1503.02531
 - Anthropic, "Detecting and preventing distillation attacks," Feb 23, 2026: https://www.anthropic.com/news/detecting-and-preventing-distillation-attacks
 - Pan et al., "Training Software Engineering Agents and Verifiers with SWE-Gym," Dec 2024: https://arxiv.org/abs/2412.21139

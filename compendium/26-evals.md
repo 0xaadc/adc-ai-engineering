@@ -10,7 +10,7 @@ Parts 1–6 told a chronological story. Part 7 steps out of the timeline, becaus
 
 A unit test asserts `f(x) == y`. That works because `f` is deterministic, its inputs can be enumerated or partitioned, and "correct" is crisp. An LLM feature breaks all three assumptions:
 
-1. **The output is a draw from a distribution (P1, P4).** The same input can pass on Monday and fail on Tuesday, even at temperature 0 ([§02](02-how-llms-work.md)). You can't unit-test a probability distribution; you can only measure a pass *rate* over many inputs and runs.
+1. **The output is a draw from a distribution (P1, P4).** The same input can pass on Monday and fail on Tuesday, even at temperature 0 on APIs that still accept it ([§02](02-how-llms-work.md)). You can't unit-test a probability distribution; you can only measure a pass *rate* over many inputs and runs.
 2. **The input space is open.** Users write anything, so you can only sample cases and check that the sample resembles production.
 3. **"Correct" is often fuzzy.** "Is this summary faithful?" has no `==`. Someone, or something, has to judge.
 

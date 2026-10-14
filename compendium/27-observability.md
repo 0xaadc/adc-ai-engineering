@@ -236,7 +236,7 @@ Data observability watches freshness, volume, schema, distribution and lineage. 
 | Tool | What it is | License and hosting | OpenTelemetry | Worth knowing |
 |---|---|---|---|---|
 | LangSmith (LangChain) | Tracing, datasets, offline and online evals | Proprietary SaaS; self-hosting is an Enterprise add-on | Accepts OTel traces | Tight LangChain and LangGraph integration; also traces other frameworks |
-| Langfuse | Tracing, prompt management, evals | Open source (MIT outside `ee/` directories); cloud or self-hosted | Built on OTel | Acquired by ClickHouse; Langfuse says no licensing changes are planned |
+| Langfuse | Tracing, prompt management, evals | Open source (MIT outside `ee/` directories); cloud or self-hosted | Built on OTel | Acquired by ClickHouse (announced Jan 16, 2026); Langfuse says no licensing changes are planned |
 | Arize Phoenix | Tracing, evals, experiments | Source-available (Elastic License 2.0), self-hosted; managed version is Arize AX | OTel with OpenInference conventions | Same instrumentation works for Phoenix and AX |
 | Braintrust | Evals and experiments plus production logging | Proprietary SaaS; self-hosted data plane on Enterprise | Accepts OTLP traces and logs | Offline evals, experiments and production logs in one platform |
 | W&B Weave (CoreWeave) | Tracing and evals | Apache-2.0 repository; hosted or dedicated instances | OTel-compatible ingest | CoreWeave's docs name Agent Lens as Weave's successor |
@@ -317,8 +317,8 @@ Traces contain user- and tool-supplied text, so instructions planted in them can
 - OpenAI, Ryan Lopopolo, "Harness engineering: leveraging Codex in an agent-first world" (Feb 2026): https://openai.com/index/harness-engineering/
 - OpenAI, prompt caching guide (`cached_tokens`): https://developers.openai.com/api/docs/guides/prompt-caching
 - LangSmith docs: OpenTelemetry tracing https://docs.langchain.com/langsmith/trace-with-opentelemetry ; online evaluations https://docs.langchain.com/langsmith/online-evaluations ; self-hosting https://docs.langchain.com/langsmith/self-hosted
-- Langfuse docs: https://langfuse.com/docs ; "Langfuse joins ClickHouse": https://langfuse.com/blog/joining-clickhouse ; license: https://github.com/langfuse/langfuse/blob/main/LICENSE
+- Langfuse docs: https://langfuse.com/docs ; "Langfuse joins ClickHouse": https://langfuse.com/blog/joining-clickhouse ; ClickHouse, "ClickHouse welcomes Langfuse" (Jan 16, 2026): https://clickhouse.com/blog/clickhouse-acquires-langfuse-open-source-llm-observability ; license: https://github.com/langfuse/langfuse/blob/main/LICENSE
 - Arize Phoenix: https://github.com/Arize-ai/phoenix ; OpenInference: https://github.com/Arize-ai/openinference
 - Braintrust docs: OpenTelemetry https://www.braintrust.dev/docs/integrations/sdk-integrations/opentelemetry ; self-hosting https://www.braintrust.dev/docs/guides/self-hosting
 - W&B Weave docs (CoreWeave): https://weave-docs.wandb.ai/
-- Datadog Agent Observability, OpenTelemetry instrumentation: https://docs.datadoghq.com/llm_observability/instrumentation/otel_instrumentation/
+- Datadog Agent Observability, OpenTelemetry instrumentation: https://docs.datadoghq.com/llm_observability/instrument/otel_instrumentation/
