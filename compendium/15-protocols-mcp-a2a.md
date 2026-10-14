@@ -8,7 +8,7 @@ Anthropic open-sourced the **Model Context Protocol (MCP)** on November 25, 2024
 
 ## Why this exists
 
-**The N×M problem (P11).** Say there are N AI applications (Claude Code, an IDE, your LangGraph service) and M systems they need (Jira, Snowflake, GitHub). Without a standard, every pair needs its own integration: N×M pieces of code, each with its own auth and bugs. With a shared protocol, each application implements the client once and each system implements the server once, so the cost becomes N+M. You know this from databases. Before ODBC and JDBC, every BI tool needed a driver per database. Afterwards, each database shipped one driver and every tool spoke one API. MCP names its own model as the Language Server Protocol, which did the same for editors and languages.
+**The N×M problem (P11).** Say there are N AI applications (Claude Code, an IDE, your LangGraph service) and M systems they need (Jira, Snowflake, GitHub). Without a standard, every pair needs its own integration: N×M pieces of code, each with its own auth and bugs. With a shared protocol, each application implements the client once and each system implements the server once, so the cost becomes N+M. You know this from databases. Before ODBC and JDBC, every BI tool needed a driver per database. Afterwards, each database shipped one driver and every tool spoke one API. The MCP spec cites the Language Server Protocol, which did the same for editors and languages, as its inspiration.
 
 The MCP docs say: "Think of MCP like a USB-C port for AI applications." That captures plug-compatibility and misses three things:
 
@@ -184,7 +184,7 @@ For HTTP transports, MCP builds on **OAuth 2.1**:
 - The MCP server is an OAuth *resource server* and the client an OAuth *client*. A separate *authorization server* signs the user in and issues tokens.
 - The client finds that server through the MCP server's **Protected Resource Metadata** (RFC 9728), uses PKCE, and names its target with a **resource indicator** (RFC 8707). Servers must reject tokens not issued for them as the audience.
 - **Token passthrough**, forwarding the client's token to an upstream API, is forbidden. It invites the confused-deputy problem, where a server is tricked into using its authority for someone else.
-- 2026-07-28 adds mandatory `iss` validation (RFC 9207) against mix-up attacks, and prefers **Client ID Metadata Documents** for client registration.
+- 2026-07-28 requires clients to validate the `iss` parameter when it is present (RFC 9207), which blocks mix-up attacks, and prefers **Client ID Metadata Documents** for client registration.
 
 Who the agent acts *as* is covered in [§33](33-agent-identity.md).
 

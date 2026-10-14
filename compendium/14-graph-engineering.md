@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-The practice is from early 2024. LangChain released LangGraph on January 17, 2024, as a library for building "cyclical graphs, often needed for agent runtimes". The label is from July 2026. It caught on over one weekend on X, and LangChain's post "3 Years of Graph Engineering with LangGraph" (Sydney Runkle and Harrison Chase, Jul 22, 2026) calls it a buzzword and "the latest name for a well established approach". So treat "graph engineering" as a niche label for an established practice. The post's title says three years, but the library's public launch was January 2024. [§13](13-multi-agent.md) left a problem: once a system has several agents, branches, retries and human approvals, its control flow needs an explicit structure, and its state has to survive crashes and pauses. This section covers that structure.
+The practice dates from early 2024, when LangChain released LangGraph (January 17, 2024) for building "cyclical graphs, often needed for agent runtimes". The label dates from July 2026. It surfaced over one weekend on X, and LangChain's post "3 Years of Graph Engineering with LangGraph" (Sydney Runkle and Harrison Chase, Jul 22, 2026) calls it a buzzword and "the latest name for a well established approach". The title says three years, though the public launch was January 2024. Treat "graph engineering" as a niche label for an established practice. It answers the problem [§13](13-multi-agent.md) left: once a system has several agents, branches, retries and human approvals, its control flow needs explicit structure, and its state has to survive crashes and pauses.
 
 ## Why this exists
 
@@ -29,11 +29,10 @@ A **state machine** is a system that is always in one of a set of named steps an
 Here is the running example, a summary that a checker validates and a human approves:
 
 ```text
- START ──> draft ──> check ──ok──> approve ──yes──> END
-             ^         │              │
-             └──fail───┘              │ (interrupt: wait for a human)
-             ^                        │
-             └─────────no─────────────┘
+ START ──> draft ──> check ──ok──> approve ──approved──> END
+            ▲ ▲        │              │
+            │ └──fail──┘              │  interrupt(): wait for a human
+            └────────rejected─────────┘
 ```
 
 ### The runtime: super-steps and a step limit
@@ -51,10 +50,10 @@ Agents need cycles because looping is the work itself. An agent retries failed t
 The agent loop from [§11](11-agents.md) is a graph with two nodes and one conditional edge:
 
 ```text
- START ──> model ──(tool requested?)──yes──> tools
-             ^                                 │
-             └─────────────────────────────────┘
-             └──no──> END
+ START ──> model ──tool requested──> tools
+            │ ▲                        │
+            │ └───────results──────────┘
+            └──no tool──> END
 ```
 
 LangChain quotes David Khourshid: "a loop is just a directed, cyclic graph", and LangChain's own agent loop runs on LangGraph. So loop vs graph is a question of how much structure you write down. Graph engineering means deciding which edges you fix in code and which the model chooses at runtime.
@@ -287,6 +286,6 @@ Time travel restores the saved state and then re-executes every node after that 
 - Microsoft Agent Framework 1.0 announcement (Apr 3, 2026): https://devblogs.microsoft.com/agent-framework/microsoft-agent-framework-version-1-0/
 - Mastra workflows: https://mastra.ai/docs/workflows/overview and https://mastra.ai/docs/workflows/control-flow
 - CrewAI Flows: https://docs.crewai.com/en/concepts/flows
-- Inngest AgentKit: https://www.inngest.com/docs/agent-kit/overview
+- Inngest events and triggers: https://www.inngest.com/docs/features/events-triggers and AgentKit: https://www.inngest.com/docs/agent-kit/overview
 - Anthropic, "Building effective agents" (Dec 19, 2024): https://www.anthropic.com/engineering/building-effective-agents
 - Microsoft GraphRAG: https://microsoft.github.io/graphrag/ and Edge et al., arXiv 2404.16130: https://arxiv.org/abs/2404.16130

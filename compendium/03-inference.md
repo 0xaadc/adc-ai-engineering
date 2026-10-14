@@ -266,7 +266,7 @@ Read the shape, not the exact numbers. The classifier pays for input, while the 
 
 Inference engineering made each token cheaper and faster, but it didn't change what a token can do. Each token gets one forward pass, a fixed amount of computation however hard the question is. A multi-step problem that needs more thought than one pass provides still fails, unless the model can spend more tokens working it out before answering. That idea, test-time compute, produced reasoning models.
 
-→ Next: [§04 Reasoning Models](04-reasoning-models.md)
+→ Next: [§04 Reasoning Models and Test-Time Compute](04-reasoning-models.md)
 
 ## Check your understanding
 
