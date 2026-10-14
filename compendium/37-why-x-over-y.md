@@ -61,7 +61,7 @@ These are starting points, not verdicts. Each row says which way the mechanism u
 | Long "how we do X here" procedures | Skills | Loaded only when they match (P3) | [§18](18-skills.md) |
 | Short rules that apply to nearly every task | The system prompt or AGENTS.md | Always relevant, so always loaded | [§18](18-skills.md) |
 | Per-user preferences and history | Memory | The agent writes it, scoped per user | [§17](17-memory.md) |
-| A model that rushes as its context fills | A context reset with a handoff file | A clean slate, where compaction keeps the noise | [§16](16-context-engineering.md), [§19](19-harness-engineering.md) |
+| A model that rushes as its context fills | A context reset with a handoff file | Compaction keeps the anxiety; a reset starts clean | [§16](16-context-engineering.md), [§19](19-harness-engineering.md) |
 | Multi-step logic, debugging, planning | Higher reasoning effort | Thinking tokens buy accuracy (P10) | [§04](04-reasoning-models.md) |
 | Classification or extraction at high volume | Low effort or a small model, maybe routed | Cost and latency dominate | [§04](04-reasoning-models.md), [§30](30-cost-latency-reliability.md) |
 | Output that code will parse | Strict structured outputs | The grammar guarantees the shape | [§06](06-structured-outputs.md) |
@@ -69,7 +69,7 @@ These are starting points, not verdicts. Each row says which way the mechanism u
 | Quality only a reader can judge | A calibrated LLM judge | Code can't read meaning; calibrate the judge (P4) | [§26](26-evals.md) |
 | A voice flow with audits and heavy tool use | Cascaded STT → LLM → TTS | Inspectable text at every step | [§25](25-voice-agents.md) |
 | An app that has an API | The API, not computer use | Structured, cheap, deterministic | [§24](24-computer-use-and-research-agents.md) |
-| Irreversible or external actions | Human approval for that action | Verification after the fact is impossible (P8, P9) | [§20](20-agent-runtime.md), [§32](32-security-guardrails.md) |
+| Irreversible or external actions | Human approval for that action | Checking after the fact is too late (P8, P9) | [§20](20-agent-runtime.md), [§32](32-security-guardrails.md) |
 | Data that can't leave your network, or steady high volume | Self-hosted open weights | Control, and utilization economics | [§31](31-open-weights-self-hosting.md) |
 | Durable execution or checkpoints you'd otherwise build | A framework or durable runtime | Hard infrastructure, already debugged | [§14](14-graph-engineering.md), [§20](20-agent-runtime.md) |
 
@@ -148,7 +148,7 @@ Each tradeoff below gives the conditions for each side, then the principle that 
 
 - **Choose human approval when** an action is irreversible, external or expensive: payments, deletions, customer emails, production deploys. Show the full arguments, not a summary, and implement the wait as a durable interrupt that saves state and resumes on the answer.
 - **Choose autonomy inside a sandbox when** actions are reversible or contained, the checks are computational, and approvals would come so often that people click yes without reading. One sandbox boundary replaces hundreds of per-action prompts.
-- **Principle:** P8 and P9. Put humans where verification after the fact is impossible, not everywhere. Approval fatigue turns oversight into theater (OWASP lists it as ASI09). Mechanism: [§20](20-agent-runtime.md), [§32](32-security-guardrails.md), [§11](11-agents.md), [§35](35-ai-ux.md).
+- **Principle:** P8 and P9. Put humans where checking after the fact would be too late, not everywhere. Approval fatigue turns oversight into theater (OWASP lists it as ASI09). Mechanism: [§20](20-agent-runtime.md), [§32](32-security-guardrails.md), [§11](11-agents.md), [§35](35-ai-ux.md).
 
 ### 13. Skills vs MCP
 
@@ -228,16 +228,16 @@ Each tradeoff below gives the conditions for each side, then the principle that 
 | 10 | Direct tools / MCP | Direct tools | Several hosts or third-party tools | Tool search lowers MCP's context cost |
 | 11 | API / computer use | API | No API exists | GUI agents improve, but stay slower and costlier |
 | 12 | Approval / autonomy | Approval on irreversible actions | Contained, reversible, computationally checked work | Better sandboxes allow more autonomy safely |
-| 13 | Skills / MCP | Both, for different jobs | n/a | Unchanged: know-how and access stay distinct |
+| 13 | Skills / MCP | Both, for different jobs | Only access is missing (MCP alone) or only know-how (a skill alone) | Little change: know-how and access stay distinct |
 | 14 | System prompt / skills | Skills for long procedures | Short, universal rules | More reliable triggering favors skills |
-| 15 | Compaction / reset | Compaction | The model shows context anxiety | Resets already deleted on newer models |
+| 15 | Compaction / reset | Compaction | The model shows context anxiety | Newer models made resets unnecessary in Anthropic's harness |
 | 16 | Structured / free text | Structured for machine consumers | Human readers, unsupported schemas | Grammar support widens; thinking keeps reasoning intact |
 | 17 | Code grader / LLM judge | Code grader | Properties only a reader can judge | Judges improve but still need calibration |
-| 18 | Reasoning / standard | Default effort, then step down | Routine high-volume work | One hybrid model with an effort dial |
+| 18 | Reasoning / standard | Default effort | Step down for routine high-volume work, up for hard multi-step tasks | One hybrid model with an effort dial |
 | 19 | Big / small + routing | One model | High mixed volume and a reliable confidence signal | Small models catch up, which favors routing |
-| 20 | API / self-host | API | Residency, steady high volume, custom decoding | Open weights narrow the quality gap |
-| 21 | Cascaded / speech-to-speech | Cascaded for regulated flows | Feel and latency dominate | Speech-to-speech models get more controllable |
-| 22 | Framework / build your own | Your own loop on a durable runtime | You'd otherwise rebuild checkpoints and tracing | Frameworks that hide prompts age fastest |
+| 20 | API / self-host | API | Residency, steady high volume, custom decoding | Open-weight models have been closing the quality gap |
+| 21 | Cascaded / speech-to-speech | Cascaded for regulated flows | Feel and latency dominate | Speech-to-speech models are gaining tools and control |
+| 22 | Framework / build your own | A thin loop you can read | You'd otherwise rebuild durable execution, checkpoints or tracing | Frameworks that hide prompts age fastest |
 
 ## What it didn't solve
 

@@ -171,7 +171,7 @@ At T=0.5, " Paris" gets 0.991 of the probability; at T=2.0, only 0.585. Eight sa
 **What hosted APIs let you change (Oct 2026).** Frontier APIs increasingly own these knobs:
 - **Anthropic** returns a 400 error for non-default `temperature`, `top_p` or `top_k` on every model released since Claude Opus 4.7, which covers all current model IDs.
 - **OpenAI**'s guide for its latest models says to remove `temperature` and `top_p` when reasoning effort is not `none`.
-- **Gemini** silently ignores all three on Gemini 3.6 Flash and newer.
+- **Gemini** ignores all three on Gemini 3.6 Flash and newer, with a deprecation warning header rather than an error.
 - **Open-weights servers** such as vLLM still expose them.
 
 `temperature = 0` never guaranteed identical outputs either: batching changes the floating-point arithmetic ([§03](03-inference.md)). Steer with prompts and test with evals ([§26](26-evals.md)).
@@ -292,3 +292,4 @@ Put the facts in context. Fine-tuning stores facts lossily, without sources, and
 - Anthropic, Token counting: https://platform.claude.com/docs/en/build-with-claude/token-counting
 - OpenAI, latest-model guide: https://developers.openai.com/api/docs/guides/latest-model
 - Google, Gemini `generateContent` reference: https://ai.google.dev/api/generate-content
+- Google, Gemini text generation (sampling deprecation note): https://ai.google.dev/gemini-api/docs/text-generation

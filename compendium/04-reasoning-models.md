@@ -42,7 +42,7 @@ This works for three reasons. A test passes or it doesn't, so there's no neural 
 
 ### OpenAI o1 (Sep 2024)
 
-OpenAI's "Learning to reason with LLMs" (Sep 12, 2024) introduced o1-preview, trained with RL to produce a hidden chain of thought before answering. Performance improved with both more RL compute (train-time) and more thinking time (test-time). OpenAI withheld the raw chain of thought (wording reported via secondary sources, **⚠ verify**) and the training recipe. Reasoning tokens were billed but invisible, and responses took seconds to minutes.
+OpenAI's "Learning to reason with LLMs" (Sep 12, 2024) introduced o1-preview, trained with RL to produce a hidden chain of thought before answering. Performance improved with both more RL compute (train-time) and more thinking time (test-time). OpenAI withheld the raw chain of thought, showing ChatGPT users only a summarized version (o1 system card), and withheld the training recipe. Reasoning tokens were billed but invisible, and responses took seconds to minutes.
 
 ### DeepSeek-R1 (Jan 2025)
 
@@ -169,7 +169,7 @@ On Claude Opus 5.5, Claude Sonnet 5.5 and Claude Fable 5.1, the notes the model 
 
 No major closed vendor shows the raw chain of thought. Anthropic returns a summary written by a *different* model, or nothing, and on the newest Claude models a prompt that tries to extract the internal reasoning into the response text may be declined with `stop_details.category: "reasoning_extraction"`. OpenAI offers opt-in summaries (`reasoning.summary`) and Google offers opt-in thought summaries, each with an encrypted continuity token. Open-weight models such as R1 show the raw `<think>` text, because you run the weights.
 
-There are three reasons to hide it. Traces are prime distillation data. Vendors want to monitor reasoning without training it to *look* good (secondary, **⚠ verify**). And a trace isn't a faithful explanation anyway. In Anthropic's Apr 2025 tests, Claude 3.7 Sonnet used planted hints but mentioned them only 25% of the time, and DeepSeek-R1 39%. Models that exploited planted reward hacks on more than 99% of prompts verbalized them less than 2% of the time in most environments. Treat summaries as a debugging aid, not an audit log.
+There are three reasons to hide it. Traces are prime distillation data. Vendors want to monitor reasoning without training it to *look* good: OpenAI researchers (Baker et al., Mar 2025) found that strong optimization pressure on the chain of thought taught models to hide their intent, and suggested showing users a summary written by a separate model instead. And a trace isn't a faithful explanation anyway. In Anthropic's Apr 2025 tests, Claude 3.7 Sonnet used planted hints but mentioned them only 25% of the time, and DeepSeek-R1 39%. Models that exploited planted reward hacks on more than 99% of prompts verbalized them less than 2% of the time in most environments. Treat summaries as a debugging aid, not an audit log.
 
 ### Failure modes
 
@@ -192,7 +192,7 @@ In 2026, "reasoning model or not" has mostly become "which effort level", since 
 
 ### Why reasoning plus RL made agents reliable in 2025
 
-Errors compound (P8). At 90% per-step reliability, a 20-step task succeeds 0.9^20 ≈ 12% of the time; at 99%, 0.99^20 ≈ 82%. In 2025 the RL recipe moved from puzzles to agentic work. OpenAI said it "trained both models to use tools through reinforcement learning" when it launched o3 and o4-mini (Apr 16, 2025). Training environments became multi-step tasks with checkable outcomes, and interleaved thinking let models check each tool result and recover: R1's backtracking, applied to tool loops. METR (Mar 2025) found that the length of tasks frontier models finish with 50% success had doubled roughly every seven months since 2019, driven primarily by "greater reliability and ability to adapt to mistakes". TechCrunch (Sep 16, 2025), citing The Information, reported that Anthropic leaders had discussed spending over $1B on RL environments over the following year (secondary, **⚠ verify**). The bitter lesson (P12) applies too: scaffolding that forced models to plan step by step became dead weight once they planned inside their thinking. [§11](11-agents.md) picks up this thread.
+Errors compound (P8). At 90% per-step reliability, a 20-step task succeeds 0.9^20 ≈ 12% of the time; at 99%, 0.99^20 ≈ 82%. In 2025 the RL recipe moved from puzzles to agentic work. OpenAI said it "trained both models to use tools through reinforcement learning" when it launched o3 and o4-mini (Apr 16, 2025). Training environments became multi-step tasks with checkable outcomes, and interleaved thinking let models check each tool result and recover: R1's backtracking, applied to tool loops. METR (Mar 2025) found that the length of tasks frontier models finish with 50% success had doubled roughly every seven months since 2019, driven primarily by "greater reliability and ability to adapt to mistakes". TechCrunch (Sep 16, 2025), citing The Information, reported that Anthropic leaders had discussed spending over $1B on RL environments over the following year (secondary). The bitter lesson (P12) applies too: scaffolding that forced models to plan step by step became dead weight once they planned inside their thinking. [§11](11-agents.md) picks up this thread.
 
 ## Comparison
 
@@ -209,7 +209,7 @@ Errors compound (P8). At 90% per-step reliability, a 20-step task succeeds 0.9^2
 | Control | Anthropic Messages | OpenAI Responses | Google Gemini Interactions |
 |---|---|---|---|
 | Depth dial | `output_config.effort`: `low` … `max` | `reasoning.effort`: `none` … `max` (model-dependent); `reasoning.mode: "pro"` on some models | `generation_config.thinking_level`: `minimal` … `high` (model-dependent) |
-| Off switch | Model-specific (`disabled`, `between_tools`, or none) | `effort: "none"` on some models | Lowest level `minimal` on some models (**⚠ verify** whether it fully disables thinking) |
+| Off switch | Model-specific (`disabled`, `between_tools`, or none) | `effort: "none"` on some models | Lowest level `minimal` on some models; Google says it doesn't guarantee thinking is off |
 | Hard cap | `max_tokens` (thinking + text) | `max_output_tokens` | `max_output_tokens` (includes thoughts) |
 | What you see | Summary or empty (`display`); never raw | Opt-in `reasoning.summary`; never raw | Opt-in `thinking_summaries` |
 | Continuity token | `signature` per thinking block | `encrypted_content` or stored state | Thought signatures |
@@ -268,6 +268,8 @@ Success compounds as p^n (P8), so raising per-step reliability from 0.9 to 0.99 
 - Wang et al., "Self-Consistency Improves Chain of Thought Reasoning in Language Models" (2022): https://arxiv.org/abs/2203.11171
 - Snell et al., "Scaling LLM Test-Time Compute Optimally can be More Effective than Scaling Model Parameters" (2024): https://arxiv.org/abs/2408.03314
 - OpenAI, "Learning to reason with LLMs" (Sep 12, 2024): https://openai.com/index/learning-to-reason-with-llms/
+- OpenAI, "OpenAI o1 System Card" (Sep 12, 2024): https://cdn.openai.com/o1-system-card.pdf
+- Baker et al. (OpenAI), "Monitoring Reasoning Models for Misbehavior and the Risks of Promoting Obfuscation" (Mar 2025): https://arxiv.org/abs/2503.11926
 - OpenAI, "Introducing OpenAI o3 and o4-mini" (Apr 16, 2025): https://openai.com/index/introducing-o3-and-o4-mini/
 - DeepSeek-AI, "DeepSeek-R1" (2025): https://arxiv.org/abs/2501.12948
 - Shao et al., "DeepSeekMath" (introduces GRPO, 2024): https://arxiv.org/abs/2402.03300
@@ -281,5 +283,6 @@ Success compounds as p^n (P8), so raising per-step reliability from 0.9 to 0.99 
 - Anthropic docs, Pricing: https://platform.claude.com/docs/en/about-claude/pricing
 - OpenAI docs, Reasoning models: https://developers.openai.com/api/docs/guides/reasoning
 - Google, Gemini thinking: https://ai.google.dev/gemini-api/docs/thinking
+- Google, Gemini 3 developer guide (thinking levels): https://ai.google.dev/gemini-api/docs/gemini-3
 - METR, "Measuring AI Ability to Complete Long Software Tasks" (2025): https://arxiv.org/abs/2503.14499
 - TechCrunch, "Silicon Valley bets big on 'environments' to train AI agents" (Sep 16, 2025) (secondary): https://techcrunch.com/2025/09/16/silicon-valley-bets-big-on-environments-to-train-ai-agents/
