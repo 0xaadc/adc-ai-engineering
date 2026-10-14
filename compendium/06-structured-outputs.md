@@ -35,7 +35,7 @@ Details worth knowing:
 
 - **Prefill.** A step-1 trick on Claude was *prefill*: you wrote the start of the assistant's reply (say `{`) and the model continued from inside the object. Claude Opus 4.6 (Feb 5, 2026) dropped prefill, and current Claude models return a 400 error for it.
 - **JSON mode's sharp edge.** OpenAI's docs warn that without an explicit request for JSON "the model may generate an unending stream of whitespace", so the API errors if "JSON" appears nowhere in the context. Keep that in mind: a constraint can force *legal* output that never ends.
-- **OpenAI Structured Outputs (GA)** arrived Aug 6, 2024, as `strict: true` on functions plus a `json_schema` response format. OpenAI reported 100% on its complex-schema eval for `gpt-4o-2024-08-06`, against under 40% for `gpt-4-0613` (**⚠ verify**: vendor eval; the post was not reachable for this review). OpenAI staff said the first request with a new schema is slow because they "preprocess the JSON schema into a context-free grammar". Since May 2025 that support has used the open-source llguidance engine, according to that project.
+- **OpenAI Structured Outputs (GA)** arrived Aug 6, 2024, as `strict: true` on functions plus a `json_schema` response format. OpenAI reported 100% on its complex-schema eval for `gpt-4o-2024-08-06` with Structured Outputs, against under 40% for `gpt-4-0613` (a vendor-run eval). OpenAI staff said the first request with a new schema is slow because they "preprocess the JSON schema into a context-free grammar". Since May 2025 that support has used the open-source llguidance engine, according to that project.
 - **Anthropic structured outputs (GA)** launched in public beta on Nov 14, 2025, and came out of beta on the Claude API on Jan 29, 2026, when `output_format` moved to `output_config.format`. As of Oct 2026 it is GA on the Claude API, Claude Platform on AWS, Google Cloud and Microsoft Foundry; on Amazon Bedrock it is offered only through the legacy integration. The docs say it works "through constrained decoding". It has two halves: **JSON outputs** (`output_config.format`) for the response, and **strict tool use** (`strict: true`) for tool arguments.
 
 ### Constrained decoding: masking the logits
@@ -56,7 +56,7 @@ Constrained decoding adds one step to the ordinary decode loop from [§03](03-in
 1. **Compile the schema into a grammar.** A *grammar* is a precise rule set for which strings are legal. A flat pattern (an enum, a date) can be a *regular expression*, which compiles to a **finite-state machine (FSM)**: a set of states where each allowed piece of text moves you to another state. Nested JSON needs a **context-free grammar**, which adds a stack to track open brackets (a *pushdown automaton*).
 2. **Compute the legal-token mask.** From the current grammar state, find which vocabulary tokens keep the output on an accepted path.
 3. **Mask and renormalize.** Set illegal tokens' logits to −∞, so their probability is exactly zero after softmax. The remaining probability is spread over the legal tokens.
-4. **Sample as usual, then advance the grammar.** Temperature still applies (P4). Only the set of choices has shrunk.
+4. **Sample as usual, then advance the grammar.** Temperature still applies where the engine exposes it (P4; current Claude models lock it at 1.0). Only the set of choices has shrunk.
 
 Here is the whole idea over an 11-token vocabulary. The fake model "wants" to start with `Sure`, but the mask makes that impossible:
 
@@ -237,8 +237,8 @@ Then measure on your own task (P4). This is an eval question, not one to settle 
 | Vendor | JSON output | Strict tool arguments |
 |---|---|---|
 | Anthropic Messages API | `output_config: {"format": {"type": "json_schema", "schema": {...}}}` | `"strict": true` beside `input_schema` |
-| OpenAI Responses API | `text: {"format": {"type": "json_schema", "strict": true, "schema": {...}}}` | `"strict": true` on the function |
-| OpenAI Chat Completions | `response_format: {"type": "json_schema", "json_schema": {"strict": true, "schema": {...}}}` | `"strict": true` on the function |
+| OpenAI Responses API | `text: {"format": {"type": "json_schema", "name": "...", "strict": true, "schema": {...}}}` | `"strict": true` on the function |
+| OpenAI Chat Completions | `response_format: {"type": "json_schema", "json_schema": {"name": "...", "strict": true, "schema": {...}}}` | `"strict": true` on the function |
 | Google Gemini API | Response format with MIME type `application/json` plus a JSON Schema | Function declarations with parameter schemas |
 
 ## What it didn't solve
@@ -289,6 +289,7 @@ A tool call is the model emitting a name plus a JSON object that must match the 
 - Anthropic, Claude Platform release notes (Nov 14, 2025 beta; Jan 29, 2026 GA; Opus 4.6 prefill removal; forced `tool_choice` changes): https://platform.claude.com/docs/en/release-notes/overview
 - OpenAI, Structured Outputs guide (JSON mode vs Structured Outputs, refusals, whitespace warning): https://developers.openai.com/api/docs/guides/structured-outputs
 - OpenAI, "Introducing Structured Outputs in the API" (Aug 6, 2024): https://openai.com/index/introducing-structured-outputs-in-the-api/
+- Pure AI, "OpenAI Launches Structured Outputs" (Aug 7, 2024; reports the 100% vs under-40% eval) (secondary): https://pureai.com/Articles/2024/08/07/OpenAI-Launches-Structured-Outputs.aspx
 - OpenAI Developer Community, "How do I use the new JSON mode?" (Nov 2023; JSON mode launch at DevDay) (secondary): https://community.openai.com/t/how-do-i-use-the-new-json-mode/475890
 - Simon Willison, "OpenAI: Introducing Structured Outputs in the API" (Aug 6, 2024; quotes Ted Sanders on CFG preprocessing and loops) (secondary): https://simonwillison.net/2024/Aug/6/openai-structured-outputs/
 - Google, Gemini API structured outputs: https://ai.google.dev/gemini-api/docs/structured-output

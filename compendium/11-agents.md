@@ -85,7 +85,7 @@ Running it prints the final `end_turn` reply after three model calls. Everything
 
 ### What each turn costs
 
-The model is stateless (P2), so every turn resends the whole transcript: the task, every call and every observation. If each turn adds *c* tokens, turn *k* sends about *k·c*, and an *n*-turn run sends about *c·n²/2* input tokens in total. **Cost grows with the square of the number of turns**, and every observation competes for attention (P3). Prompt caching absorbs most of the repeated prefix. On Claude Sonnet 5.5, cache hits cost $0.20 per million tokens against $2 for fresh input, as of Oct 2026 ([§30](30-cost-latency-reliability.md)). Pruning stale observations handles the rest ([§16](16-context-engineering.md)).
+The model is stateless (P2), so every turn resends the whole transcript: the task, every call and every observation. If each turn adds *c* tokens, turn *k* sends about *k·c*, and an *n*-turn run sends about *c·n²/2* input tokens in total. **Cost grows with the square of the number of turns**, and every observation competes for attention (P3). Prompt caching absorbs most of the repeated prefix. On Claude Sonnet 5.5, cache hits cost $0.10 per million tokens against $2 for fresh input, as of Oct 2026 ([§30](30-cost-latency-reliability.md)). Pruning stale observations handles the rest ([§16](16-context-engineering.md)).
 
 ### Workflows vs agents (P7)
 

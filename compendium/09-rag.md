@@ -170,7 +170,7 @@ QUERY:  global: map-reduce over community reports at one level
         (also DRIFT = local plus community context; basic = plain vector top-k)
 ```
 
-For global questions over datasets of about 1 million tokens, the paper reports "substantial improvements" over a conventional RAG baseline in the comprehensiveness and diversity of answers. The price is indexing. LLM calls for every chunk and every community make it far more expensive and slower than embedding, extraction errors get baked into the graph, changes mean re-indexing, and the docs strongly recommend tuning the prompts. LazyGraphRAG (Nov 2024) defers the LLM work to query time to reduce indexing cost **(⚠ verify)**. GraphRAG beats vector RAG on whole-corpus themes and on connect-the-dots questions across documents. For needle lookups ("what's the refund window?"), hybrid search is cheaper and just as good.
+For global questions over datasets of about 1 million tokens, the paper reports "substantial improvements" over a conventional RAG baseline in the comprehensiveness and diversity of answers. The price is indexing. LLM calls for every chunk and every community make it far more expensive and slower than embedding, extraction errors get baked into the graph, changes mean re-indexing, and the docs strongly recommend tuning the prompts. LazyGraphRAG (Nov 2024) defers the LLM work to query time to reduce indexing cost. GraphRAG beats vector RAG on whole-corpus themes and on connect-the-dots questions across documents. For needle lookups ("what's the refund window?"), hybrid search is cheaper and just as good.
 
 A note on names. Vendors also use "GraphRAG" loosely for any retrieval backed by a graph database. More importantly, it is **not** graph engineering ([§14](14-graph-engineering.md)). In graph engineering, the graph is the agent's *control flow*: nodes are steps and edges are transitions, as in LangGraph. In GraphRAG, the graph is the *data*: nodes are entities and edges are relationships. It's the same word at a different layer.
 
@@ -263,6 +263,7 @@ GraphRAG precomputes an entity graph, Leiden communities and LLM-written communi
 - Microsoft GraphRAG documentation (indexing, global/local/DRIFT search): https://microsoft.github.io/graphrag/
 - Microsoft GraphRAG, Global Search (map-reduce over community reports): https://microsoft.github.io/graphrag/query/global_search/
 - Microsoft Research, "LazyGraphRAG: Setting a new standard for quality and cost", Nov 2024: https://www.microsoft.com/en-us/research/blog/lazygraphrag-setting-a-new-standard-for-quality-and-cost/
+- The Stack, "Microsoft unveils hard-working, lower-cost LazyGraphRAG" (Nov 27, 2024; quotes Microsoft on deferring LLM use) (secondary): https://www.thestack.technology/microsoft-lazygraphrag/
 - Snowflake Cortex Search (chunking guidance, refresh semantics): https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-search/cortex-search-overview
 - Anthropic, Embeddings guide (Voyage models incl. `voyage-context-4`): https://platform.claude.com/docs/en/build-with-claude/embeddings
 - Docling (document parsing): https://docling-project.github.io/docling/

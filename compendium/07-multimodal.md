@@ -90,7 +90,7 @@ for name, (w, h), tier in [("photo 1000x1000", (1000, 1000), "high_res"),
     print(f"{name:22} {tier:9} {t:5} tokens  ${t * PRICE_PER_MTOK / 1e6 * 1000:.2f} per 1k images")
 ```
 
-It prints 1296, 1560, 2691, 1551 and 4784 tokens, which matches Anthropic's published table. At Claude Sonnet 5.5's $2 per million input tokens, that is about $2.59 per thousand 1-megapixel photos and $9.57 per thousand high-resolution 4K frames.
+It prints 1296, 1560, 2691, 1551 and 4784 tokens, which matches the figures in Anthropic's vision and coordinates guides. At Claude Sonnet 5.5's $2 per million input tokens, that is about $2.59 per thousand 1-megapixel photos and $9.57 per thousand high-resolution 4K frames.
 
 Rules of thumb:
 
