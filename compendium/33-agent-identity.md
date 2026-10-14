@@ -8,9 +8,7 @@ In 2025–2026, agents began acting across SaaS systems on users' behalf: readin
 
 ## Why this exists
 
-Before agents, identity came in two shapes. **Humans** signed in through single sign-on (SSO), one login at a corporate identity provider such as Okta or Microsoft Entra. **Services** ran as service accounts with fixed permissions. An agent fits neither. It is software, so it can't type a password or tap a passkey, yet it acts on a person's request, chooses its actions probabilistically (P4), and reads untrusted text that can redirect it (P9).
-
-The shortcuts teams first reached for each break in a predictable way:
+Before agents, identity came in two shapes. **Humans** signed in through single sign-on (SSO), one login at a corporate identity provider (IdP) such as Okta or Microsoft Entra. **Services** ran as service accounts with fixed permissions. An agent fits neither. It is software, yet it acts on a person's request, chooses actions probabilistically (P4), and reads untrusted text that can redirect it (P9). The first shortcuts each break predictably:
 
 - **Give the agent the user's credentials** (a password or personal API key). The agent now has *all* of the user's power, logs can't tell the agent from the person, and you can't revoke one without the other.
 - **Run the agent as a shared service account with broad access.** Any user can now get the agent to do what they personally can't, by asking or by planting a document it reads. That is a **confused deputy**: a program with authority tricked into using it for someone else. OWASP's agentic list calls the missing distinction an "attribution gap" (ASI03).
@@ -190,17 +188,13 @@ Hosted runtimes now do this for you. In **Claude Managed Agents** **(Preview)**,
 
 ### 6. Per-tool authorization and step-up approval
 
-Authorize at the tool layer, in code, and again at the resource server. Each tool maps to an audience and scope, as in the broker. The API then checks the token *and* applies its own policy, such as row-level security, as defense in depth.
+Authorize in code at the tool layer, as the broker does, and again at the resource server, which checks the token *and* applies its own policy, such as row-level security. Two kinds of "step-up" are easy to confuse. **Step-up authorization** gets *more scope* from the AS, as with MCP's `insufficient_scope` challenge. **Step-up approval** has a human confirm *one specific action*, like the broker's `STEP_UP` set or `always_ask` tools ([§20](20-agent-runtime.md)).
 
-Two kinds of "step-up" are easy to confuse:
-- **Step-up authorization** gets *more scope* from the AS, as with MCP's `insufficient_scope` challenge.
-- **Step-up approval** has a human confirm *one specific action*, like the broker's `STEP_UP` set or `always_ask` tools ([§20](20-agent-runtime.md)).
-
-The WIMSE draft warns that a click in the agent's own UI "do[es] not by themselves constitute authorization". It suggests binding the approval to an AS event, for example with OpenID **CIBA** (Client-Initiated Backchannel Authentication), which sends the user an approval request on their phone. A2A has an equivalent, the `TASK_STATE_AUTH_REQUIRED` task state. Short-lived tokens also limit **authorization drift**, the TOCTOU (time-of-check to time-of-use) risk that OWASP describes: a user's spending limit is cut mid-workflow while the agent keeps going on its original token.
+The WIMSE draft says confirmations in the agent's own UI "do not by themselves constitute authorization". It suggests binding them to an AS event, for example with OpenID **CIBA** (Client-Initiated Backchannel Authentication), which pushes an approval request to the user's phone. Short-lived tokens also limit **authorization drift**, OWASP's time-of-check to time-of-use case: a user's spending limit is cut mid-workflow while the agent carries on with its original token.
 
 ### 7. Audit: who did what, on whose behalf
 
-Every action needs a record that names the **actor** (agent identity and version), the **principal** (the user, from `sub`), the delegation chain (`act` claims, parent agents), the tool, the arguments, the scopes, the decision (allowed, or approved and by whom), the trace ID ([§27](27-observability.md)) and the context sources ([§32](32-security-guardrails.md)). Because the agent has its own `client_id`, a SaaS audit log can show "Alice via invoice-bot" instead of just "Alice". Token passthrough and impersonation erase exactly that distinction.
+Each action's record names the **actor** (agent identity and version), the **principal** (the user, from `sub`), the delegation chain (`act` claims, parent agents), the tool, arguments and scopes, the decision and approver, the trace ID ([§27](27-observability.md)) and the context sources ([§32](32-security-guardrails.md)). Because the agent has its own `client_id`, a SaaS audit log can show "Alice via invoice-bot" rather than just "Alice". Token passthrough and impersonation erase exactly that distinction.
 
 ### 8. Agent-to-agent authentication
 
@@ -209,7 +203,7 @@ A2A states that "identity information is handled at the protocol layer, not with
 - Clients get credentials out of band, and servers MUST authenticate every request, then authorize by skill, action or scope.
 - Mid-task, an agent can enter `TASK_STATE_AUTH_REQUIRED`, and the client may pass that request up its own chain.
 
-**Agent Card signing** uses JWS (RFC 7515) over the card canonicalized with JCS (RFC 8785), excluding the `signatures` field itself. A valid signature proves who published the card and that it wasn't altered. It does not prove the agent behaves as described. OWASP's "forged agent persona" scenario, a fake "Admin Helper" card in an internal registry, is the reason to verify signatures and allow-list publishers (ASI07). For workload-to-workload calls, the WIMSE drafts add mTLS, proof tokens and HTTP message signatures.
+**Agent Card signing** uses JWS (RFC 7515) over the card canonicalized with JCS (RFC 8785), excluding the `signatures` field itself. A valid signature proves who published the card and that it wasn't altered, not that the agent behaves as described. OWASP's "forged agent persona" scenario (ASI03), a fake "Admin Helper" card in an internal registry, is why you verify signatures and allow-list publishers. For workload-to-workload calls, the WIMSE drafts add mTLS, proof tokens and HTTP message signatures.
 
 ### 9. Emerging standards (drafts, not settled)
 
@@ -225,7 +219,7 @@ Vendor products, such as the Microsoft Entra, AWS and Salesforce offerings that 
 ### 10. Enterprise rollout
 
 - **SSO and central policy.** With MCP's **Enterprise-Managed Authorization**, employees sign in once through the corporate IdP. The client exchanges that identity assertion for an ID-JAG, which the MCP server's AS accepts. The IdP decides which servers each employee can reach, and offboarding is one revocation "across all MCP clients".
-- **RBAC for agents.** RBAC (role-based access control) grants permissions to roles, not individuals. Give each agent its own principal with roles, and give users roles that govern which agents and tools they may use. OpenAI's federation guidance generalizes well: one principal per workload, separate production and non-production, exact claim matching rather than wildcards, short token lifetimes.
+- **RBAC for agents.** RBAC (role-based access control) grants permissions to roles, not individuals. Give each agent its own principal with roles, and give users roles that govern which agents and tools they may use. OpenAI's federation guidance generalizes: one principal per workload, separate production from non-production, match claims exactly, keep token lifetimes short.
 - **Spend controls by identity.** Per-agent and per-user budgets, workspace limits and session caps ([§20](20-agent-runtime.md)). Identity also makes chargeback possible ([§30](30-cost-latency-reliability.md)).
 - **Lifecycle.** Every agent identity needs a named human owner, periodic access review and decommissioning, so orphaned agents don't keep live credentials.
 

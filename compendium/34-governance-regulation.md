@@ -87,7 +87,15 @@ The **GPAI Code of Practice** (published Jul 10, 2025) is the voluntary route to
 
 ### The timeline, including the 2026 amendments
 
-In November 2025 the Commission proposed a "Digital Omnibus" simplification package. Its AI-Act part, the **"Digital Omnibus on AI"** (or "AI Omnibus"), reached political agreement on May 7, 2026. Per the Commission it **entered into force on July 27, 2026**, and the Commission links the final text at OJ L 2026/1744 **(⚠ verify the regulation number: EUR-Lex was unreachable from here)**. The headline change delays the high-risk rules, which were originally due in August 2026 (Annex III) and August 2027 (Annex I), so that they apply "when companies have the right support tools to facilitate implementation, such as standards."
+In November 2025 the Commission proposed a "Digital Omnibus" simplification package. Its AI-Act part, the **"Digital Omnibus on AI"** (or "AI Omnibus"), went through the legislature in 2026:
+
+- **May 7:** political agreement
+- **Jun 16:** Parliament adopted it
+- **Jun 29:** the Council adopted it
+- **Jul 24:** published in the Official Journal as **Regulation (EU) 2026/1744**
+- **Jul 27:** entered into force
+
+The headline change delays the high-risk rules, which were originally due in August 2026 (Annex III) and August 2027 (Annex I), so that they apply "when companies have the right support tools to facilitate implementation, such as standards."
 
 | Date | What starts to apply |
 |---|---|
@@ -358,7 +366,9 @@ Prohibitions, AI literacy and Art. 50 transparency already apply. The controls t
 ## Sources
 
 - Regulation (EU) 2024/1689 (AI Act), EUR-Lex: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R1689
-- AI Omnibus final text as linked by the Commission (OJ L 2026/1744): https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=OJ:L_202601744
+- Regulation (EU) 2026/1744 (AI Omnibus), Official Journal L, Jul 24, 2026: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=OJ:L_202601744
+- European Parliament, Legislative Observatory, procedure 2025/0359(COD) (adoption dates, final act): https://oeil.secure.europarl.europa.eu/oeil/en/procedure-file?reference=2025/0359(COD)
+- European Commission, "AI Omnibus enters into force" (Jul 27, 2026): https://digital-strategy.ec.europa.eu/en/news/ai-omnibus-enters-force
 - European Commission, AI Act regulatory framework (risk tiers, timeline, Omnibus dates): https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai
 - European Commission, AI Act Service Desk, implementation timeline: https://ai-act-service-desk.ec.europa.eu/en/ai-act/timeline/timeline-implementation-eu-ai-act
 - European Commission, The General-Purpose AI Code of Practice: https://digital-strategy.ec.europa.eu/en/policies/contents-code-gpai
