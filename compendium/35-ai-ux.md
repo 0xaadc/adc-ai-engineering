@@ -177,12 +177,12 @@ The engineering rule is to **attach every feedback event to the trace ID** of th
 
 **2. Declarative catalogs.** The model emits a component tree (JSON) that uses only components from a catalog the app owns. The app validates it and renders it with native widgets. Examples:
 
-- **OpenAI ChatKit widgets** **(GA)**: a `WidgetRoot` container such as a `Card` with `confirm`/`cancel` actions, holding components. Clicks arrive at your backend as action payloads.
+- **OpenAI ChatKit widgets**: a `WidgetRoot` container such as a `Card` with `confirm`/`cancel` actions, holding components. Clicks arrive at your backend as action payloads.
 - **A2UI**: an Apache-2.0 spec created by Google. Its site lists v0.9.1 as current and v1.0 as a candidate as of Oct 2026.
 
 As of Oct 2026, OpenAI is retiring Agent Builder (shutdown scheduled for Nov 30, 2026), and ChatKit remains available.
 
-**3. Sandboxed apps.** The server ships a whole HTML application, and the host isolates it. **MCP Apps** is an *official MCP extension* (`modelcontextprotocol/ext-apps`) that sits alongside the core 2026-07-28 spec rather than inside it. It works like this:
+**3. Sandboxed apps.** The server ships a whole HTML application, and the host isolates it. **MCP Apps** launched on Jan 26, 2026 as the *first official MCP extension* (`modelcontextprotocol/ext-apps`). It was proposed in Nov 2025, building on the MCP-UI project and OpenAI's Apps SDK, and was developed with both. As an extension it sits alongside the core spec (now 2026-07-28), not inside it. It works like this:
 
 - A tool's description includes `_meta.ui.resourceUri`, which points at a `ui://` resource.
 - The host fetches the HTML and renders it in a **sandboxed iframe** that can't touch the parent page's DOM, cookies or storage. The resource's `_meta.ui.csp` controls which external origins the app may load from.
@@ -378,6 +378,7 @@ Human cues (names, faces, emotional language, simulated typing) trigger social t
 - Anthropic, Citations: https://platform.claude.com/docs/en/build-with-claude/citations
 - Anthropic, "Beyond permission prompts: making Claude Code more secure and autonomous" (Oct 20, 2025): https://www.anthropic.com/engineering/claude-code-sandboxing
 - Model Context Protocol, MCP Apps overview: https://modelcontextprotocol.io/extensions/apps/overview
+- MCP Blog, "MCP Apps - Bringing UI Capabilities To MCP Clients" (Jan 26, 2026): https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/
 - Model Context Protocol, Extensions overview (official extensions incl. MCP Apps and Tasks): https://modelcontextprotocol.io/extensions/overview
 - AG-UI documentation, introduction: https://docs.ag-ui.com/introduction
 - AG-UI specification 1.0, event streams: https://docs.ag-ui.com/spec/1.0/events/index.md

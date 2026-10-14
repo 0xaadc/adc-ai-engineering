@@ -120,15 +120,15 @@ MCP client                     MCP server (resource server)          Authorizati
 
 **Hard requirements.** PKCE with `S256`, and clients MUST refuse an AS whose metadata lacks `code_challenge_methods_supported`. The `resource` parameter, set to the server's canonical URI, goes in both the authorization and token requests. The token travels in the `Authorization` header of every request, never the query string. Servers MUST validate that tokens were issued "specifically for them as the intended audience". New in 2026-07-28, clients validate the `iss` parameter (RFC 9207), which defeats **mix-up attacks** where a malicious AS gets a client to send it a code from an honest one, and they key stored credentials to the issuing AS.
 
-**Step-up authorization.** Start with minimal scopes. When a call needs more, the server answers `403` with `error="insufficient_scope"` and the required scopes, and the client re-authorizes with the union of old and new scopes, retrying only a few times. The security guide's common mistakes include wildcard scopes, publishing every scope up front, and treating a token's scopes as sufficient "without server-side authorization logic."
+**Step-up authorization.** Start with minimal scopes. When a call needs more, the server answers `403` with `error="insufficient_scope"` and the required scopes, and the client re-authorizes with the union of old and new scopes. The security guide warns against wildcard scopes and against treating a token's scopes as sufficient "without server-side authorization logic."
 
-**Extensions.** **OAuth Client Credentials** (a draft) covers machine-to-machine access and recommends signed JWT assertions (RFC 7523) over client secrets. **Enterprise-Managed Authorization** (stable) hands the decision to the company's identity provider, as described below.
+**Extensions.** **OAuth Client Credentials** (a draft) covers machine-to-machine access, preferring signed JWT assertions (RFC 7523) to client secrets. **Enterprise-Managed Authorization** (stable) hands the decision to the company's IdP, as described below.
 
 ### 4. Token passthrough and the confused deputy
 
 **Token passthrough** is an MCP server accepting a token not issued to it and forwarding it downstream. Servers "MUST NOT accept or transit any other tokens." The security guide's reasons: it bypasses controls such as rate limits that depend on the token's audience, logs show the wrong identity, and a stolen token turns the server into an exfiltration proxy. When an MCP server calls GitHub, it should act as GitHub's OAuth client with a *separate* token from GitHub's authorization server.
 
-The spec also documents a confused-deputy attack on **MCP proxy servers** that use one static client ID with a third-party AS. After a user consents once, the third-party AS sets a consent cookie. An attacker registers a new client with a malicious redirect URI and sends the user a link, the cookie skips the consent screen, and the code goes to the attacker. The fix is per-client consent at the proxy.
+The spec also documents a confused-deputy attack on **MCP proxy servers** that use one static client ID with a third-party AS. Once a user has consented, a consent cookie lets an attacker's newly registered client, with its malicious redirect URI, skip the consent screen and receive the code. The fix is per-client consent at the proxy.
 
 The same problem appears whenever a high-privilege agent trusts a low-privilege one. In OWASP's ASI03 example, an email-sorting agent relays a forged instruction to a finance agent, which pays because it trusts "an internal agent". Authorize each hop against the *original user's* identity. **OAuth Token Exchange** (RFC 8693) swaps an incoming token for a narrower one for the next hop, and its `act` (actor) claim records who acts for whom.
 
@@ -198,10 +198,7 @@ Each action's record names the **actor** (agent identity and version), the **pri
 
 ### 8. Agent-to-agent authentication
 
-A2A states that "identity information is handled at the protocol layer, not within A2A semantics". In practice:
-- An Agent Card declares `securitySchemes`: API key, HTTP bearer, OAuth 2.0, OpenID Connect or mutual TLS.
-- Clients get credentials out of band, and servers MUST authenticate every request, then authorize by skill, action or scope.
-- Mid-task, an agent can enter `TASK_STATE_AUTH_REQUIRED`, and the client may pass that request up its own chain.
+A2A states that "identity information is handled at the protocol layer, not within A2A semantics". An Agent Card declares `securitySchemes` (API key, HTTP bearer, OAuth 2.0, OpenID Connect or mutual TLS). Clients get credentials out of band, and servers MUST authenticate every request, then authorize by skill, action or scope. Mid-task, an agent can enter `TASK_STATE_AUTH_REQUIRED`, and the client may pass that request up its own chain.
 
 **Agent Card signing** uses JWS (RFC 7515) over the card canonicalized with JCS (RFC 8785), excluding the `signatures` field itself. A valid signature proves who published the card and that it wasn't altered, not that the agent behaves as described. OWASP's "forged agent persona" scenario (ASI03), a fake "Admin Helper" card in an internal registry, is why you verify signatures and allow-list publishers. For workload-to-workload calls, the WIMSE drafts add mTLS, proof tokens and HTTP message signatures.
 
@@ -214,24 +211,18 @@ A2A states that "identity information is handled at the protocol layer, not with
 - **Individual drafts**, such as *On-Behalf-Of User Authorization for AI Agents* (rev 02, Feb 2026), are proposals, not adopted work.
 - **OpenID Foundation:** *Identity Management for Agentic AI* (Oct 7, 2025) finds existing standards cover agents inside one organization or on a user's own data, and flags recursive delegation, consent fatigue and fragmented agent identities as open gaps.
 
-Vendor products, such as the Microsoft Entra, AWS and Salesforce offerings that OWASP names, package these ideas under their own names.
-
 ### 10. Enterprise rollout
 
 - **SSO and central policy.** With MCP's **Enterprise-Managed Authorization**, employees sign in once through the corporate IdP. The client exchanges that identity assertion for an ID-JAG, which the MCP server's AS accepts. The IdP decides which servers each employee can reach, and offboarding is one revocation "across all MCP clients".
 - **RBAC for agents.** RBAC (role-based access control) grants permissions to roles, not individuals. Give each agent its own principal with roles, and give users roles that govern which agents and tools they may use. OpenAI's federation guidance generalizes: one principal per workload, separate production from non-production, match claims exactly, keep token lifetimes short.
-- **Spend controls by identity.** Per-agent and per-user budgets, workspace limits and session caps ([§20](20-agent-runtime.md)). Identity also makes chargeback possible ([§30](30-cost-latency-reliability.md)).
-- **Lifecycle.** Every agent identity needs a named human owner, periodic access review and decommissioning, so orphaned agents don't keep live credentials.
+- **Spend controls by identity:** per-agent and per-user budgets and session caps ([§20](20-agent-runtime.md)), which also make chargeback possible ([§30](30-cost-latency-reliability.md)).
+- **Lifecycle:** every agent identity needs a named human owner, access reviews and decommissioning, so orphaned agents don't keep live credentials.
 
 ### 11. The data-engineering analogy
 
-You have solved this problem before, in the warehouse.
+You have solved this problem before, in the warehouse. Databricks Apps offers agents two modes. **App authorization** uses an automatically created service principal, and "all users who interact with the app share the same permissions". **User authorization**, formerly on-behalf-of (OBO), runs as the requesting user, for "user-specific permissions, audit trails, or fine-grained access control with Unity Catalog". That is autonomous vs delegated authority. Snowflake's **owner's-rights** stored procedures are deputies with their own authority, which become confused deputies if callers control their inputs; **caller's-rights** procedures run with the caller's privileges.
 
-**Service principal vs on-behalf-of.** Databricks Apps offers two modes for agents. **App authorization** uses an automatically created service principal, and "all users who interact with the app share the same permissions". **User authorization**, formerly on-behalf-of (OBO), runs as the requesting user, for "user-specific permissions, audit trails, or fine-grained access control with Unity Catalog". That is autonomous vs delegated authority.
-
-**Owner's rights vs caller's rights.** Snowflake stored procedures run with either. An owner's-rights procedure is a deputy with its own authority, and if callers control its inputs, it can become a confused deputy.
-
-**Row-level security is the last line.** Row filters and column masks apply only if the query carries the real user's identity. A delegated token lets your existing RLS bound a hijacked agent to what that user could see. A god-mode service account bypasses all of it, which is the permission leak [§9](09-rag.md) warned about.
+**Row-level security is the last line.** Row filters and column masks work only if the query carries the real user's identity. A delegated token lets your existing RLS confine a hijacked agent to what that user could see. A god-mode service account bypasses all of it, the permission leak [§9](09-rag.md) warned about.
 
 ### Failure modes
 
@@ -259,7 +250,7 @@ You have solved this problem before, in the warehouse.
 |---|---|---|---|---|
 | Pre-registration | Client ID issued out of band | Simple, explicit trust | Doesn't scale to unknown servers | Known client–server pairs |
 | Client ID Metadata Document | `client_id` is an HTTPS URL to a JSON document the AS fetches | No prior relationship; AS can apply domain trust policy | AS must guard against SSRF; localhost redirect impersonation | Default for open ecosystems |
-| Dynamic Client Registration | Client POSTs metadata to a registration endpoint | Widely implemented | Deprecated in MCP; enables proxy consent attacks | Only for older authorization servers |
+| Dynamic Client Registration | Client POSTs metadata to a registration endpoint | Widely implemented | Deprecated in MCP; part of the documented proxy consent attack | Only for older authorization servers |
 
 **Credentials**
 
@@ -307,13 +298,13 @@ The click happens in software the agent controls and leaves nothing a resource s
 
 ## Takeaways
 
-- An agent is software acting for someone. Give it its own identity, and record whose behalf it acts on: `client_id` for the agent, `sub` for the user.
-- Prefer delegated authority for user data. Effective rights are the user's rights intersected with the granted scopes, so your existing row-level security still applies.
-- OAuth 2.1 basics: authorization code + PKCE, short-lived audience-bound access tokens, refresh tokens kept secret, minimal scopes.
-- MCP 2026-07-28: servers are resource servers with Protected Resource Metadata, CIMD replaces Dynamic Client Registration, and `resource`, PKCE S256 and `iss` validation are mandatory.
-- Token passthrough is forbidden. Each hop gets its own token, and RFC 8693 token exchange can downscope it and record the actor chain.
+- An agent is software acting for someone. Give it its own identity and record whom it acts for: `client_id` for the agent, `sub` for the user.
+- Prefer delegated authority for user data: the user's rights intersected with the granted scopes, so existing row-level security still applies.
+- OAuth 2.1 basics: authorization code + PKCE, short-lived audience-bound access tokens, secret refresh tokens, minimal scopes.
+- MCP 2026-07-28: Protected Resource Metadata, CIMD over the now-deprecated Dynamic Client Registration, mandatory `resource`, PKCE S256 and audience checks, and `iss` validation.
+- Token passthrough is forbidden. Each hop gets its own token; RFC 8693 token exchange can downscope it and record the actor chain.
 - Credentials never enter context (P9). A harness-side broker, vault or workload identity attaches them at execution time.
-- Real approval is a verifiable authorization event; a UI click alone isn't.
+- Real approval is a verifiable authorization event, not just a UI click.
 - Agent identity standards are still drafts (WIMSE, OAuth WG, OpenID). Most of the work is applying OAuth and workload identity well.
 
 ## Sources

@@ -189,7 +189,7 @@ The industry built these out in 2025:
 - **TechCrunch** (Sep 16, 2025) described labs demanding environments, startups such as Mechanize, and labeling firms (Surge, Mercor, Scale AI) moving in. Citing The Information, it reported that Anthropic leaders had discussed spending over $1 billion on RL environments over the following year (secondary, **⚠ verify**).
 - **Meta and Hugging Face** launched OpenEnv, a shared environment spec and hub (Oct 23, 2025).
 
-Why this made agents better comes down to compounding error (P8). Scoring whole multi-step tasks on their outcome rewards whatever raises per-step reliability, including checking tool results and recovering from mistakes, which raises *p* in *pⁿ*. Training inside realistic harnesses also couples models to them ([§19](19-harness-engineering.md)).
+Why this made agents better comes down to compounding error (P8). Scoring whole multi-step tasks on their outcome rewards whatever raises per-step reliability, including checking tool results and recovering from mistakes, which raises *p* in *pⁿ*. It also couples models to the harnesses they were trained in ([§19](19-harness-engineering.md)).
 
 The weak point is the verifier: if it can be fooled, RL finds the way. Anthropic's Nov 2025 study uses the example of calling `sys.exit(0)` so a test harness reports success, and found that models which learned such hacks generalized to worse behavior, including sabotage. Skeptics quoted by TechCrunch called environments "prone to reward hacking," and Karpathy said he was "bullish on environments and agentic interactions but … bearish on reinforcement learning specifically." For an app team: you rarely train a frontier model, but your agent eval harness is most of an environment already, so building it well pays twice. The label "environment engineering" is niche; the industry is real.
 
@@ -265,21 +265,21 @@ Every rung is a hypothesis, and the eval decides ([§26](26-evals.md)). Before: 
 
 ## What it didn't solve
 
-A better model, whether prompted, tuned or distilled, still has to run in production. It must stay within a cost budget and a latency budget, and it must stay up when providers rate-limit, time out or fail. The cost math above is one slice of that problem. Caching, batching, routing between models, gateways and fallbacks are the rest. → Next: [§30 Cost, Latency, and Reliability](30-cost-latency-reliability.md)
+A better model, whether prompted, tuned or distilled, still has to run in production: within a cost budget and a latency budget, and reliably when providers rate-limit, time out or fail. The cost math above is one slice of that problem; caching, batching, routing between models, gateways and fallbacks are the rest. → Next: [§30 Cost, Latency, and Reliability](30-cost-latency-reliability.md)
 
 ## Check your understanding
 
 **Q: What does "low rank" mean in LoRA, and why does it cut training memory so much?**
 
-LoRA writes each weight update as a product B·A through r dimensions, so a 4096 × 4096 matrix trains 16 × 8,192 ≈ 131K parameters at r = 16 instead of 16.8M. Optimizer state costs about 16 bytes per *trainable* parameter, while frozen weights cost only 2 bytes each in 16-bit, or about 0.5 in 4-bit with QLoRA. That takes an 8B model from about 128 GB to 17 GB, or about 5 GB. The tradeoff is capacity: if the task needs more change than the rank allows, as with large datasets, LoRA falls behind full fine-tuning.
+LoRA writes each weight update as a product B·A through r dimensions, so a 4096 × 4096 matrix trains 16 × 8,192 ≈ 131K parameters at r = 16 instead of 16.8M. Training state costs about 16 bytes per *trainable* parameter, while frozen weights cost 2 bytes each (about 0.5 in 4-bit with QLoRA), so an 8B model drops from about 128 GB to 17 GB, or 5 GB. The tradeoff is capacity: when a task needs more change than the rank allows, as with large datasets, LoRA falls behind full fine-tuning.
 
 **Q: Why not fine-tune your product documentation into the model instead of using RAG?**
 
-Fine-tuning absorbs new facts slowly, and once it does, it increases hallucination (Gekhman et al.). Retrieval outperformed fine-tuning for adding knowledge (Ovadia et al.). A fine-tuned model also can't cite its source and goes stale with the next doc edit, while RAG stays fresh and checkable (P5). Fine-tune only for how to use the retrieved documents, such as format, tone or citation style.
+Fine-tuning absorbs new facts slowly and, once it does, increases hallucination (Gekhman et al.), and retrieval beat it for adding knowledge (Ovadia et al.). A fine-tuned model also can't cite its source and goes stale with the next doc edit, while RAG stays fresh and checkable (P5). Fine-tune only for how to use the retrieved documents: format, tone, citation style.
 
 **Q: What would happen if you ran RFT on a task where the model currently scores 0%?**
 
-Nothing useful. RL raises the probability of samples that score above the group average. If every sample scores zero, every sample sits exactly at the average, so there's no gradient signal to follow. Make the task reachable first: add context or tools, decompose it, or run SFT on demonstrations. Partial-credit graders can help, but each new way to score is a new way to hack the score.
+Nothing useful. RL raises the probability of samples that score above the group average, and if every sample scores zero, none does, so there is no gradient signal. Make the task reachable first: add context or tools, decompose it, or run SFT on demonstrations. Partial-credit graders can help, but every new way to score is a new way to hack the score.
 
 **Q: How is an RL environment different from an agent eval?**
 
@@ -287,11 +287,11 @@ Structurally it isn't: both are a task, tools, a sandbox and a verifier. The dif
 
 **Q: Why might a fine-tune that beats your prompt today be worthless in a year?**
 
-It is tied to its base model, and provider fine-tunes shut down with that model. OpenAI's GPT-4.1 fine-tunes end on Jan 14, 2027. Meanwhile newer stock models often match the tuned behavior at the same price or lower (P12). So the payback period has to be well inside the base model's remaining life. Keep the training data and evals, so that retraining or deleting is a measured decision rather than a guess.
+It is tied to its base model, and provider fine-tunes shut down with it: OpenAI's GPT-4.1 fine-tunes end on Jan 14, 2027. Meanwhile newer stock models often match the tuned behavior at the same price or lower (P12). So payback has to come well inside the base model's remaining life. Keep the training data and evals, so retraining or deleting is a measured decision.
 
 **Q: Your fine-tune gained 8 points on the target metric, but users say it got worse at everything else. What happened?**
 
-Catastrophic forgetting. Gradient updates for the new task overwrote shared weights that other skills relied on, and your eval measured only the target task. Retrain with LoRA, mix in general-purpose data, use lower learning rates or fewer epochs, and keep the model close to the reference. Then add regression suites for instruction following, formats and safety, so the next run can't ship with the same blind spot.
+Catastrophic forgetting: updates for the new task overwrote shared weights other skills relied on, and your eval measured only the target task. Retrain with LoRA, mixed-in general data, a lower learning rate or fewer epochs, and a pull toward the reference model. Then add regression suites for instruction following, formats and safety so the next run can't ship with the same blind spot.
 
 ## Takeaways
 

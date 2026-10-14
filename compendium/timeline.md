@@ -65,8 +65,8 @@ Each system step exists because the step before it left a problem unsolved, and 
 | Feb 2026 | "Harness engineering" named (Hashimoto Feb 5; OpenAI Feb 11; coinage also credited to Trivedy); "agentic engineering" (Karpathy; Willison's patterns guide) | The harness becomes a discipline of its own | [§19](19-harness-engineering.md), [§23](23-coding-agents.md) |
 | Mar 2026 | "Agent = Model + Harness" (LangChain); planner–generator–evaluator harness (Anthropic) | Anatomy of a harness; keeping the maker separate from the checker | [§19](19-harness-engineering.md) |
 | Apr 2026 | Böckeler's guides and sensors; Managed Agents (Anthropic); Cognition's "what's actually working" | Harness theory; separating session, harness, and sandbox; single-threaded writes | [§19](19-harness-engineering.md), [§20](20-agent-runtime.md), [§13](13-multi-agent.md) |
-| Jun 2026 | "Loop engineering" (Osmani); EU AI Act Omnibus formally adopted **(⚠ verify)** | Designing the systems that prompt agents; a new regulation timeline | [§21](21-loop-engineering.md), [§34](34-governance-regulation.md) |
-| Jul 2026 | "Graph engineering" label (LangChain); MCP 2026-07-28 spec (stateless core, extensions framework, Tasks as an extension) | Naming graph orchestration; protocol maturity | [§14](14-graph-engineering.md), [§15](15-protocols-mcp-a2a.md) |
+| Jun 2026 | "Loop engineering" (Osmani); EU AI Act Omnibus adopted (Parliament Jun 16, Council Jun 29) | Designing the systems that prompt agents; high-risk obligations moved to Dec 2027 and Aug 2028 | [§21](21-loop-engineering.md), [§34](34-governance-regulation.md) |
+| Jul 2026 | "Graph engineering" label (LangChain); MCP 2026-07-28 spec (stateless core, extensions framework, Tasks as an extension); AI Act Omnibus published as Regulation (EU) 2026/1744 (Jul 24) | Naming graph orchestration; protocol maturity; the new regulatory timeline becomes law | [§14](14-graph-engineering.md), [§15](15-protocols-mcp-a2a.md), [§34](34-governance-regulation.md) |
 
 ## The chain in one breath
 
