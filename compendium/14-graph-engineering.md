@@ -37,7 +37,7 @@ Here is the running example, a summary that a checker validates and a human appr
 
 ### The runtime: super-steps and a step limit
 
-LangGraph's runtime is modeled on Google's Pregel graph-processing system. Execution moves in discrete **super-steps**: every ready node runs (in parallel if there are several), then their updates are applied through the reducers, and a **checkpoint** (a snapshot of the state) is written at the boundary. Since v1.0.6 the default **recursion limit** is 1,000 super-steps, after which the run raises `GraphRecursionError`. Lower it per run with `config={"recursion_limit": 25}`.
+LangGraph's runtime is modeled on Google's Pregel graph-processing system. Execution moves in discrete **super-steps**: every ready node runs (in parallel if there are several), then their updates are applied through the reducers, and a **checkpoint** (a snapshot of the state) is written at the boundary. A **recursion limit** caps the number of super-steps, after which the run raises `GraphRecursionError`. The default was 25 until v1.0.6. The docs now say 1,000, but the code sets 10,000 (10,007 from v1.2; a runaway loop on langgraph 1.2.15 stops at step 10,007), so in practice the default barely bounds anything. Set it per run with `config={"recursion_limit": 25}`.
 
 ### Why agent graphs have cycles
 
@@ -277,6 +277,7 @@ Time travel restores the saved state and then re-executes every node after that 
 - LangChain, "3 Years of Graph Engineering with LangGraph" (Runkle & Chase, Jul 22, 2026): https://www.langchain.com/blog/3-years-of-graph-engineering-with-langgraph
 - LangChain, "LangGraph" launch post (Jan 17, 2024): https://blog.langchain.com/langgraph/
 - LangGraph Graph API (state, reducers, super-steps, `Send`, recursion limit): https://docs.langchain.com/oss/python/langgraph/graph-api
+- LangGraph source, `DEFAULT_RECURSION_LIMIT` (checked in the 1.0.5, 1.0.6 and 1.2.15 wheels): https://github.com/langchain-ai/langgraph/blob/main/libs/langgraph/langgraph/_internal/_config.py
 - LangGraph persistence (checkpointers and stores): https://docs.langchain.com/oss/python/langgraph/persistence
 - LangGraph interrupts: https://docs.langchain.com/oss/python/langgraph/interrupts
 - LangGraph time travel: https://docs.langchain.com/oss/python/langgraph/use-time-travel

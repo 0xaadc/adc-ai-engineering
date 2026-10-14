@@ -24,7 +24,7 @@ Data engineers know this gap as the difference between "the job succeeded" and "
 A **trace** is the complete record of one request or task, from the user's input to the final response, including every model call, tool call and retrieval along the way (Husain and Shankar's definition). A **span** is one timed operation inside a trace. Each span carries a trace ID, its own span ID, its parent's span ID, a name, start and end times, a status and **attributes** (key-value pairs). Parent links make the spans a tree. Traces from one multi-turn conversation are grouped by a conversation or session ID. Vendors use these terms slightly differently, so check what a tool means by "trace" before comparing.
 
 ```text
-trace 4bf92f…  "Where is order 1234?"                                     2.41 s   $0.0101
+trace 4bf92f…  "Where is order 1234?"                                     2.41 s   $0.0084
 └─ invoke_agent support                                                   2.41 s
    ├─ chat claude-sonnet-5-5      in 8,900 (8,000 cached) / out 250 tok   0.92 s   stop=tool_use
    ├─ execute_tool lookup_order   {"order_id": "1234"} → {"status": …}    0.08 s
@@ -119,7 +119,7 @@ def traced(operation, **attrs):  # nested calls become child spans of the same t
     return decorate
 ```
 
-The `ContextVar` holds the current span, so a function called inside another traced function becomes its child, and it works across `async` code too. The `finally` block guarantees the span is exported even when the call raises, which is when you need it most. Only `chat` spans copy token usage. An earlier draft let any function that *returned* a model response record usage, so the agent span, which returns the final reply, counted that call twice. Parent spans duplicating child usage is a common real-world cost bug. Real OTel spans also carry a span kind and nanosecond epoch timestamps, and they're batched to a Collector over OTLP.
+The `ContextVar` holds the current span, so a function called inside another traced function becomes its child, and it works across `async` code too. The `finally` block guarantees the span is exported even when the call raises, which is when you need it most. Only `chat` spans copy token usage. If every function that *returned* a model response recorded usage, the agent span, which returns the final reply, would count that call twice. Parent spans duplicating child usage is a common real-world cost bug. Real OTel spans also carry a span kind and nanosecond epoch timestamps, and they're batched to a Collector over OTLP.
 
 ### Snippet: cost and latency aggregation
 
@@ -128,7 +128,7 @@ Spans are rows in an event table, and dashboards are `GROUP BY` queries over it.
 ```python
 import collections, random, statistics, time   # continues the decorator snippet above
 
-PRICE = {"claude-sonnet-5-5": {"in": 2.00, "cache_read": 0.20, "out": 10.00}}  # USD per 1M tokens
+PRICE = {"claude-sonnet-5-5": {"in": 2.00, "cache_read": 0.10, "out": 10.00}}  # USD per 1M tokens
 SONNET = {"gen_ai.provider.name": "anthropic", "gen_ai.request.model": "claude-sonnet-5-5"}
 
 @traced("chat", **SONNET)
@@ -166,10 +166,10 @@ print(f"traces={len(roots)}  cost/trace mean=${statistics.mean(cost.values()):.4
 ```
 
 ```text
-traces=50  cost/trace mean=$0.0195 max=$0.0295  latency p50=18ms p95=35ms
+traces=50  cost/trace mean=$0.0195 max=$0.0255  latency p50=22ms p95=34ms
 ```
 
-Your numbers will differ, because step counts are random. Three habits show up even in a toy. Cost is aggregated per trace, because a task is what the user experiences and pays for, not a single call. Latency is reported as percentiles, because the p95 user waits about twice as long as the median one here. And the same fold works for any attribute: group by `gen_ai.response.model`, prompt version or customer slice. The prices are Claude Sonnet 5.5's per-million-token rates as of October 2026 ($2 input, $0.20 cache read, $10 output). With caching off, each call would bill all 8,900 input tokens at the full rate, about 3.4× the cost per call.
+Your numbers will differ, because step counts are random. Three habits show up even in a toy. Cost is aggregated per trace, because a task is what the user experiences and pays for, not a single call. Latency is reported as percentiles, because a mean hides the slow tail that some users actually hit. And the same fold works for any attribute: group by `gen_ai.response.model`, prompt version or customer slice. The prices are Claude Sonnet 5.5's per-million-token list rates as of October 2026 ($2 input, $0.10 cache hits, $10 output; 5-minute cache writes cost $2.50). With caching off, each call would bill all 8,900 input tokens at the full rate, about 4× the cost per call.
 
 ### Online evals and sampling
 
@@ -210,7 +210,7 @@ The mechanism is a comparison: a rolling window against a baseline, with the sam
 
 A trace store is a copy of everything users, documents and tools put into context: names, emails, health details, passages behind access controls ([§09](09-rag.md)), secrets in tool results. The GenAI conventions treat this as the default concern. Instrumentations "SHOULD NOT capture [content] by default" and offer three patterns: don't record content; record it on span attributes, "best suited" to pre-production or storage that already complies with privacy rules; or store content externally and record references on spans, recommended for production because "external storage enables separate access controls."
 
-Redact at the source, in an in-process span processor before export, or in the Collector. Use regexes for structured identifiers (emails, card numbers), NER models (named-entity recognition, which tags names and places) for free text, and pseudonymous IDs for users. Redaction is itself probabilistic, so sample its output and check it: "Redaction tools can miss sensitive information" (Husain and Shankar). Keep raw content for less time than aggregate metrics, and key it by pseudonymous user ID so you can delete one person's data on request. Treat the trace store like a PII warehouse, with access control and audit, and remember that a SaaS backend is a data processor for whatever you send it. Traces also hold untrusted text, so a trace viewer that renders HTML, or an agent that reads traces, inherits prompt-injection risk (P9). Governance continues in [§32](32-security-guardrails.md) and [§34](34-governance-regulation.md).
+Redact either at the source, in an in-process span processor before export, or centrally in the Collector. Use regexes for structured identifiers (emails, card numbers), NER models (named-entity recognition, which tags names and places) for free text, and pseudonymous IDs for users. Redaction is itself probabilistic, so sample its output and check it: "Redaction tools can miss sensitive information" (Husain and Shankar). Keep raw content for less time than aggregate metrics, and key it by pseudonymous user ID so you can delete one person's data on request. Treat the trace store like a PII warehouse, with access control and audit, and remember that a SaaS backend is a data processor for whatever you send it. Traces also hold untrusted text, so a trace viewer that renders HTML, or an agent that reads traces, inherits prompt-injection risk (P9). Governance continues in [§32](32-security-guardrails.md) and [§34](34-governance-regulation.md).
 
 ### Agents reading their own traces
 
@@ -277,7 +277,7 @@ Most LLM failures are successful HTTP calls carrying a wrong, unsafe or wasteful
 
 **Q: What happens if you compute Claude costs from `input_tokens` alone on a cache-heavy agent?**
 
-Anthropic reports cache reads and writes separately from `input_tokens`, so a call with 8,000 cached and 900 uncached tokens shows only 900. Your token totals undercount by about 90%, your cache hit rate is meaningless, and costs are wrong in both directions, because cached tokens bill at a tenth of the input rate and cache writes at a premium. The GenAI conventions require summing all three into `gen_ai.usage.input_tokens` and recording cached tokens separately. OpenAI's `input_tokens` already include cached tokens, so the same code would double-count there.
+Anthropic reports cache reads and writes separately from `input_tokens`, so a call with 8,000 cached and 900 uncached tokens shows only 900. Your token totals undercount by about 90%, your cache hit rate can't be computed, and the cost estimate leaves out cache hits (billed at a fraction of the input rate) and cache writes (billed at a premium). The GenAI conventions require summing all three into `gen_ai.usage.input_tokens` and recording cached tokens separately, then pricing each kind at its own rate. OpenAI's `input_tokens` already include cached tokens, so adding them again would double-count there.
 
 **Q: Head sampling vs tail sampling: which should you use to catch rare agent failures?**
 

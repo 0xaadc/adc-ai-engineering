@@ -234,7 +234,7 @@ Files won because they are inspectable, diffable and versioned, models are heavi
 
 ### Failure modes
 
-- **Memory poisoning.** This is P9 stretched across time. If an agent writes content from an untrusted source (a web page, an email, a tool result) into memory, any injected instruction is replayed into every future session: prompt injection that persists. OWASP's Top 10 for Agentic Applications (Dec 2025) lists Memory & Context Poisoning (as ASI06, per secondary sources **(⚠ verify)**). Defenses:
+- **Memory poisoning.** This is P9 stretched across time. If an agent writes content from an untrusted source (a web page, an email, a tool result) into memory, any injected instruction is replayed into every future session: prompt injection that persists. OWASP's Top 10 for Agentic Applications (Dec 2025) lists Memory & Context Poisoning as ASI06. Defenses:
   - Record where each memory came from (provenance).
   - Don't auto-save from untrusted content without review.
   - Mount shared and procedural memory read-only.

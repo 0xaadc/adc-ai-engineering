@@ -89,7 +89,7 @@ Anthropic's long-running coding harness (Nov 2025) formalized the pattern. An in
 
 ### Compress: tool-result clearing and compaction
 
-**Tool-result clearing** is the lightest form of compression. Once the agent has acted on a 20K-token file read, it rarely needs the raw text again. The Claude API's context editing (`context-management-2025-06-27`, **(Preview)**) does this server-side with the `clear_tool_uses_20250919` strategy. Past a trigger (default: 100K input tokens), it replaces the oldest tool results with a placeholder and keeps the most recent few (default: 3), and you can exclude specific tools. At launch in Sep 2025, Anthropic reported a 29% gain on an internal agentic-search eval (39% with the memory tool) and 84% fewer tokens on a 100-turn web-search eval (vendor-reported). Manus adds a rule: make compression **restorable**. Drop the page content but keep the URL, so the agent can fetch it again.
+**Tool-result clearing** is the lightest form of compression. Once the agent has acted on a 20K-token file read, it rarely needs the raw text again. The Claude API's context editing (`context-management-2025-06-27`, **(Preview)**) does this server-side with the `clear_tool_uses_20250919` strategy. Past a trigger (default: 100K input tokens), it replaces the oldest tool results with a placeholder and keeps the most recent few (default: 3), and you can exclude specific tools. At launch in Sep 2025, Anthropic reported a 29% gain on an internal agentic-search eval (39% with the memory tool) and 84% fewer tokens on a 100-turn web-search eval (vendor-reported). Manus adds a rule: make compression **restorable**. Drop the page content but keep the URL, so the agent can fetch it again. On the 5.5-family models (Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1), clearing or shortening an earlier tool result *by hand* breaks preserved thinking: it changes the prefix of every later thinking block, and the API rejects the request with a 400 by default for accounts created on or after Aug 31, 2026 (older accounts can opt in). Server-side context editing and compaction don't count as edits, because the check compares what you sent, so on these models let the API clear or compact for you.
 
 **Compaction** summarizes the conversation as it nears the limit and continues from the summary. Claude Code keeps "architectural decisions, unresolved bugs, and implementation details", plus the five most recently accessed files. The hard part is what to keep. Anthropic's advice is to tune the summarization prompt on real traces, for recall first and then for precision. The minimal mechanism, which summarizes old turns past a threshold and keeps recent turns verbatim:
 
@@ -132,7 +132,7 @@ def chat(messages, user_text, used):
     return reply, used
 ```
 
-The API can also compact for you **(Preview)**. Threshold compaction (`compact_20260112`, default trigger 150K tokens) fires inside a normal request. On-demand compaction (`compact-2026-09-04`, Sep 2026) runs when you ask, can keep recent turns verbatim, and can run in the background. One 2026 catch: on models with preserved thinking (Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1), a summary you write yourself invalidates the thinking blocks in the turns you keep. Either replay no thinking, as the snippet does, or let the API write the summary.
+The API can also compact for you **(Preview)**. Threshold compaction (`compact_20260112`, default trigger 150K tokens) fires inside a normal request. On-demand compaction (`compact-2026-09-04`, Sep 2026) runs when you ask, can keep recent turns verbatim, and can run in the background. One 2026 catch: on models with preserved thinking (Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1), a summary you write yourself invalidates the thinking blocks in the turns you keep, and newer accounts get a 400 for sending them. Either replay no thinking, as the snippet does, or let the API write the summary.
 
 ### Resets vs compaction, and "context anxiety"
 
@@ -147,7 +147,7 @@ A subagent gets a clean window and a narrow task. It may spend tens of thousands
 Prompt caching ([§05](05-api-and-prompting.md)) stores the computed state (the KV cache, [§03](03-inference.md)) for a prompt prefix, so a later request with a byte-identical prefix skips that prefill. Three rules follow from "prefix match":
 
 1. **Order by stability.** Anthropic renders `tools`, then `system`, then `messages`. Put what never changes first and what changes each turn last. A timestamp at the top of the system prompt makes everything after it uncacheable.
-2. **Keep history append-only.** Editing an earlier message, such as clearing a tool result or rewriting a summary, invalidates the cache from that point on. Curating and caching therefore pull against each other: batch your edits (context editing has a `clear_at_least` setting for this) and compact rarely. Manus calls the KV-cache hit rate "the single most important metric for a production-stage AI agent."
+2. **Keep history append-only.** Editing an earlier message, such as clearing a tool result or rewriting a summary, invalidates the cache from that point on, and on the 5.5-family models every later thinking block too (see Compress above). Curating and caching therefore pull against each other: batch your edits (context editing has a `clear_at_least` setting for this) and compact rarely. Manus calls the KV-cache hit rate "the single most important metric for a production-stage AI agent."
 3. **Change instructions without editing the prefix.** On current Claude models, append a `{"role": "system"}` message to `messages` instead of editing `system` (no beta header, as of Oct 2026).
 
 ```json
@@ -182,7 +182,7 @@ Claude API caching prices (verified Oct 2026, per million tokens):
 | Claude Opus 5.5 | $4.00 | $5.00 | $8.00 | $0.20 (0.05×) |
 | Claude Haiku 5.5 (prompts ≤100K) | $0.10 | $0.125 | $0.20 | $0.01 (0.1×) |
 
-The default TTL (time to live) is 5 minutes. Each hit refreshes it for free, and the clock runs from the *start* of a request, so a 4-minute generation leaves about 1 minute before the entry expires. Take a worked example on Sonnet 5.5: a 50K-token prefix sent 20 times within the TTL. Uncached, that costs 20 × 50K × $2/M = $2.00. Cached, it costs one write ($0.125) plus 19 hits ($0.095), so $0.22, about 89% less, with faster time-to-first-token too. A 5-minute entry pays off on its first hit. Choose the 1-hour TTL only when gaps between requests regularly fall between 5 and 60 minutes. OpenAI caches prefixes automatically without breakpoints, with model-dependent discounts and lifetimes. Google Gemini offers implicit caching plus explicit cache objects with a TTL **(⚠ verify)**. The layout rule is the same everywhere.
+The default TTL (time to live) is 5 minutes. Each hit refreshes it for free, and the clock runs from the *start* of a request, so a 4-minute generation leaves about 1 minute before the entry expires. Take a worked example on Sonnet 5.5: a 50K-token prefix sent 20 times within the TTL. Uncached, that costs 20 × 50K × $2/M = $2.00. Cached, it costs one write ($0.125) plus 19 hits ($0.095), so $0.22, about 89% less, with faster time-to-first-token too. A 5-minute entry pays off on its first hit. Choose the 1-hour TTL only when gaps between requests regularly fall between 5 and 60 minutes. OpenAI also caches prefixes: earlier models only implicitly, while GPT-5.6 and later add explicit breakpoints and charge 1.25× for cache writes. Google Gemini caches implicitly by default. Explicit cache objects with a TTL (default 1 hour) exist only for some Gemini 3 and 2.5 models on `generateContent`, not on Gemini 4 Argon onward or the Interactions API. The layout rule is the same everywhere.
 
 ### Measuring context usage
 
@@ -232,7 +232,7 @@ Compaction summarizes old turns so the same agent continues. A reset starts a ne
 
 **Q: Why is tool-result clearing the lightest form of compaction, and what does it cost?**
 
-Once the model has acted on a large tool result, the raw text rarely matters again, and a placeholder can't hallucinate the way a summary can. But each clearing edits earlier context and breaks the cache from that point, so batch clearings instead of trimming every turn. Keep the path or URL so it's restorable, and exclude results the agent still depends on, such as the spec it's implementing.
+Once the model has acted on a large tool result, the raw text rarely matters again, and a placeholder can't hallucinate the way a summary can. But each clearing edits earlier context and breaks the cache from that point, so batch clearings instead of trimming every turn. On the 5.5-family models, let the API's context editing do it: clearing by hand also invalidates every later thinking block. Keep the path or URL so it's restorable, and exclude results the agent still depends on, such as the spec it's implementing.
 
 **Q: Just-in-time agentic search vs pre-indexed RAG: when does each win?**
 
@@ -281,3 +281,4 @@ A failed command and its stack trace shift the model away from repeating that ac
 - Laban et al., "LLMs Get Lost In Multi-Turn Conversation" (May 2025): https://arxiv.org/abs/2505.06120
 - Cognition, "Don't Build Multi-Agents" (Jun 2025): https://cognition.ai/blog/dont-build-multi-agents
 - OpenAI, Prompt caching guide: https://developers.openai.com/api/docs/guides/prompt-caching
+- Google, Gemini API context caching (implicit) and explicit caching: https://ai.google.dev/gemini-api/docs/caching ; https://ai.google.dev/gemini-api/docs/generate-content/caching

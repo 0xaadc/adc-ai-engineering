@@ -166,7 +166,7 @@ This was the largest revision since launch, with breaking changes. Everything be
 
 **An extensions framework.** Extensions have reverse-DNS IDs, are negotiated through an `extensions` map in capabilities, are always opt-in, and are versioned independently of the spec. The official ones are:
 - **Tasks**, for long-running work. A server can answer `tools/call` with a task handle that the client drives with `tasks/get` (polling), `tasks/update` (mid-flight input) and `tasks/cancel`. Tasks were experimental core in 2025-11-25 and were redesigned as an extension.
-- **MCP Apps.** A tool declares a UI resource (`_meta.ui.resourceUri`, a `ui://` URI) that the host renders as HTML in a sandboxed iframe. The UI talks back over the same JSON-RPC, so its actions pass the same consent path as tool calls ([§35](35-ai-ux.md)).
+- **MCP Apps**, an official extension since January 26, 2026, before this revision; the framework now covers it. A tool declares a UI resource (`_meta.ui.resourceUri`, a `ui://` URI) that the host renders as HTML in a sandboxed iframe. The UI talks to the host over postMessage in a JSON-RPC dialect of MCP and asks the host to make tool calls for it, so its actions pass the same consent path as tool calls ([§35](35-ai-ux.md)).
 - **Skills over MCP**, which serves Agent Skills from servers ([§18](18-skills.md)). There are also authorization extensions, such as OAuth client credentials.
 
 **Deprecations under a formal lifecycle.** Features move from Active to Deprecated to Removed, with at least twelve months before any removal. This release deprecates:
@@ -287,7 +287,7 @@ On stdio, stdout *is* the protocol channel, and every line is expected to be a J
 - MCP and A2A apply P11: standard interfaces turn N×M custom integrations into N+M.
 - MCP has hosts, clients and servers. Servers offer tools (model-controlled), resources (application-driven) and prompts (user-controlled), all over JSON-RPC 2.0.
 - MCP feeds tool use rather than replacing it. The host maps `tools/list` into tool definitions and `tool_use` into `tools/call` (P6).
-- The 2026-07-28 spec is stateless: no handshake or session, `_meta` on every request, multi round-trip results, Tasks and MCP Apps as extensions, and Roots, Sampling and Logging deprecated.
+- The 2026-07-28 spec is stateless: no handshake or session, `_meta` on every request, multi round-trip results, Tasks moved into an extension (MCP Apps has been one since Jan 2026), and Roots, Sampling and Logging deprecated.
 - Remote MCP uses OAuth 2.1 with audience-bound tokens, and token passthrough is forbidden.
 - Tool descriptions are untrusted instructions (P9). Defend against poisoning and rug pulls with least privilege and pinned definitions.
 - Every connected tool costs context on every request. Load fewer, defer them, or call them through code.
@@ -305,6 +305,7 @@ On stdio, stdout *is* the protocol channel, and every line is expected to be a J
 - MCP security best practices: https://modelcontextprotocol.io/specification/2026-07-28/basic/security_best_practices
 - MCP blog, "The 2026-07-28 MCP Specification Release Candidate": https://blog.modelcontextprotocol.io/posts/2026-07-28-release-candidate/
 - MCP extensions overview: https://modelcontextprotocol.io/extensions/overview and MCP Apps: https://modelcontextprotocol.io/extensions/apps/overview
+- MCP blog, "MCP Apps - Bringing UI Capabilities To MCP Clients" (Jan 26, 2026): https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/
 - MCP architecture and intro: https://modelcontextprotocol.io/docs/learn/architecture and https://modelcontextprotocol.io/docs/getting-started/intro
 - MCP Python SDK v2 (what's new, running a server): https://py.sdk.modelcontextprotocol.io/whats-new/ and https://py.sdk.modelcontextprotocol.io/run/
 - Anthropic, "Donating the Model Context Protocol and establishing the Agentic AI Foundation" (Dec 9, 2025): https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation

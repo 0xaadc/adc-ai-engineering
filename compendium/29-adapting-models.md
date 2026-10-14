@@ -99,9 +99,9 @@ The output is still a prompt: readable, diffable, reversible and portable (re-op
                                   r ≪ d (typically 8–64); B starts at zero, so training starts at the base model
 ```
 
-Per matrix, trainable parameters fall from d_in × d_out to r × (d_in + d_out). After training you can merge BA into W, so inference has no extra latency, or keep adapters separate and swap them per request. The paper reported 10,000× fewer trainable parameters and 3× less GPU memory than full Adam fine-tuning of GPT-3 175B, with comparable quality. In data-engineering terms, it is a small delta stored against a large frozen base table instead of a full copy per variant.
+Per matrix, trainable parameters fall from d_in × d_out to r × (d_in + d_out). After training you can merge BA into W (no extra inference latency) or keep adapters separate and swap them per request. The paper reported 10,000× fewer trainable parameters and 3× less GPU memory than full Adam fine-tuning of GPT-3 175B, at comparable quality. In data-engineering terms, it is a small delta against a large frozen base table instead of a full copy per variant.
 
-**QLoRA** (Dettmers et al., May 2023) stores the frozen base in 4 bits, using a NormalFloat type (NF4) designed for normally distributed weights, and backpropagates through it into 16-bit adapters. That fit a 65B model on a single 48 GB GPU while matching 16-bit fine-tuning on the authors' tasks. The calculator below makes the arithmetic concrete for an 8B model:
+**QLoRA** (Dettmers et al., May 2023) stores the frozen base in 4 bits (a "NormalFloat" type, NF4, designed for normally distributed weights) and backpropagates through it into 16-bit adapters, which fit a 65B model on one 48 GB GPU while matching 16-bit fine-tuning on the authors' tasks. The arithmetic for an 8B model:
 
 ```python
 # Llama-3-8B-shaped layer (public config): hidden size 4096, MLP width 14336, 32 layers,
@@ -147,12 +147,7 @@ LoRA r=16  q,v only:        6.8M  (0.10% of full)
 full FT ~ 128 GB    LoRA ~ 17 GB    QLoRA ~ 5 GB    (r=16 adapter file: ~84 MB)
 ```
 
-Does LoRA match full fine-tuning? For the dataset sizes most product teams have, mostly yes:
-
-- **Large datasets.** Biderman et al. (May 2024) found LoRA "substantially underperforms" full fine-tuning on code and math with large datasets but "better maintains the base model's performance on tasks outside the target domain." In their title's words, LoRA learns less and forgets less.
-- **Typical post-training sizes.** Thinking Machines' "LoRA Without Regret" (Sep 29, 2025) found LoRA equal to full fine-tuning on small-to-medium instruction and reasoning datasets, and for RL "even with small ranks." The condition was applying it to all layers, especially the MLP layers.
-  - Attention-only LoRA, the original paper's choice, underperformed even at matched parameter counts.
-  - LoRA falls behind once the dataset exceeds its capacity.
+Does LoRA match full fine-tuning? At the dataset sizes most product teams have, mostly yes. Biderman et al. (May 2024) found LoRA "substantially underperforms" full fine-tuning on code and math with large datasets but "better maintains the base model's performance on tasks outside the target domain": it learns less and forgets less. Thinking Machines' "LoRA Without Regret" (Sep 29, 2025) found LoRA equal to full fine-tuning on small-to-medium instruction and reasoning datasets, and for RL "even with small ranks," provided it is applied to all layers, especially the MLP layers. Attention-only LoRA, the original paper's choice, underperformed even at matched parameter counts, and LoRA falls behind once a dataset exceeds its capacity.
 
 ### Rung 6: preference tuning (DPO)
 
@@ -162,22 +157,18 @@ Use preference pairs ([§28](28-data-flywheels.md)) when annotators can say whic
 
 *Reinforcement fine-tuning (RFT)* applies the reasoning-model recipe of RL with verifiable rewards ([§04](04-reasoning-models.md)) to your task. You supply prompts and a *grader*, a function that scores any response: a string check, a text-similarity score, Python code, a model-scored rubric, or a combination. OpenAI's docs describe the loop: the platform "samples several responses per prompt, scores them with the grader, and applies policy-gradient updates based on those rewards."
 
-Because RL can only reinforce what the model already does sometimes, the preconditions follow from the mechanism. OpenAI's RFT guide lists them:
+RL can only reinforce what the model already does sometimes, so the preconditions in OpenAI's RFT guide follow from the mechanism:
 
-- **Experts must agree on the answer.** Otherwise the reward is noise.
-- **The model must already succeed sometimes.** "If a model has a 0% success rate at a given task, you cannot bootstrap to higher performance levels through RFT."
-- **Scores must vary across samples.** If every sample scores the same, there is nothing to compare.
-- **The task must be guess-proof.** Otherwise lucky guesses get reinforced along with bad reasoning.
+- **Experts must agree on the answer**, or the reward is noise.
+- **The model must already succeed sometimes:** "If a model has a 0% success rate at a given task, you cannot bootstrap to higher performance levels through RFT."
+- **Scores must vary across samples**, or there is nothing to compare.
+- **The task must be guess-proof**, or lucky guesses get reinforced along with bad reasoning.
 
-Availability as of Oct 2026:
-
-- **OpenAI.** RFT supported only `o4-mini`, and OpenAI's deprecation schedule removes `o4-mini` and its fine-tunes on Oct 23, 2026. Its self-serve fine-tuning platform stopped accepting new organizations on May 7, 2026, and closes to new jobs for existing customers on Jan 6, 2027.
-- **Amazon Bedrock** offers RFT for Nova 2 Lite and some open-weight models (gpt-oss-20B, Qwen3 32B).
-- **Open-weight models.** Open-source stacks such as Prime Intellect's `verifiers` and `prime-rl`, and Thinking Machines' LoRA-based Tinker API (launched Oct 1, 2025), run RFT on open-weight models.
+Availability as of Oct 2026: OpenAI's RFT supported only `o4-mini`, which its deprecation schedule removes, fine-tunes included, on Oct 23, 2026. Its self-serve fine-tuning platform stopped taking new organizations on May 7, 2026 and closes to new jobs on Jan 6, 2027. Amazon Bedrock offers RFT for Nova 2 Lite and some open-weight models (gpt-oss-20B, Qwen3 32B). For open-weight models there are open-source stacks such as Prime Intellect's `verifiers` and `prime-rl`, and Thinking Machines' LoRA-based Tinker API (launched Oct 1, 2025).
 
 ### Rung 8: distillation
 
-**Distillation** trains a small *student* model to imitate a large *teacher*. Hinton et al. (2015) introduced it as matching the teacher's full output probabilities. With API models you usually see only text, so in practice you run the teacher on your real inputs, filter its outputs with your evals or graders, and fine-tune the student on what survives with SFT. It works because a narrow task needs only a small slice of the teacher's ability, and it pays off in cost and latency (P10). The student is at most as good as the teacher on the inputs you covered and degrades quickly outside them, so pair it with routing that sends unusual inputs to the big model ([§30](30-cost-latency-reliability.md)). Terms of use apply ([§28](28-data-flywheels.md)). Anthropic notes that frontier labs "routinely distill their own models to create smaller, cheaper versions for their customers," so the small model you can already call may be the distillation you were about to build.
+**Distillation** trains a small *student* to imitate a large *teacher*. Hinton et al. (2015) matched the teacher's full output probabilities; with API models you see only text, so in practice you run the teacher on your real inputs, filter its outputs with evals or graders, and SFT the student on what survives. It works because a narrow task needs only a slice of the teacher's ability, and it pays in cost and latency (P10). The student is at most as good as the teacher on covered inputs and degrades fast outside them, so route unusual inputs to the big model ([§30](30-cost-latency-reliability.md)). Terms of use apply ([§28](28-data-flywheels.md)). And frontier labs "routinely distill their own models to create smaller, cheaper versions for their customers" (Anthropic), so the small model you can already call may be the distillation you were about to build.
 
 ### RL environments: where evals and training converge
 
@@ -192,45 +183,32 @@ An **RL environment** packages a task, the tools and sandbox to attempt it, and 
 
 The industry built these out in 2025:
 
-- **SWE-Gym** (Dec 30, 2024) packaged 2,438 real Python tasks, each with a codebase, an executable runtime, unit tests and a task description. Training on it gave up to 19% absolute gains on SWE-Bench Verified and Lite.
-- **OpenAI** said it trained o3 and o4-mini "to use tools through reinforcement learning" (Apr 2025, [§04](04-reasoning-models.md)).
-- **Prime Intellect** launched an open Environments Hub on Aug 27, 2025.
-- **TechCrunch** (Sep 16, 2025) described labs demanding more environments, startups such as Mechanize and Prime Intellect, and labeling firms (Surge, Mercor, Scale AI) moving in. Citing The Information, it reported that Anthropic leaders had discussed spending over $1 billion on RL environments over the following year (secondary, **⚠ verify**).
-- **Meta and Hugging Face** launched OpenEnv, a shared environment spec and hub, on Oct 23, 2025.
+- **SWE-Gym** (Dec 30, 2024): 2,438 real Python tasks, each with a codebase, runtime, unit tests and task description. Training on it gave up to 19% absolute gains on SWE-Bench Verified and Lite.
+- **OpenAI** trained o3 and o4-mini "to use tools through reinforcement learning" (Apr 2025, [§04](04-reasoning-models.md)).
+- **Prime Intellect** launched an open Environments Hub (Aug 27, 2025).
+- **TechCrunch** (Sep 16, 2025) described labs demanding environments, startups such as Mechanize, and labeling firms (Surge, Mercor, Scale AI) moving in. Citing The Information, it reported that Anthropic leaders had discussed spending over $1 billion on RL environments over the following year (secondary, **⚠ verify**).
+- **Meta and Hugging Face** launched OpenEnv, a shared environment spec and hub (Oct 23, 2025).
 
-Why it made agents better comes down to compounding error (P8). Training on whole multi-step tasks, scored on the outcome, rewards whatever raises per-step reliability, including checking tool results and recovering from mistakes. That raises *p* in *pⁿ*. Training inside realistic harnesses also couples models to the harnesses they run in ([§19](19-harness-engineering.md)).
+Why this made agents better comes down to compounding error (P8). Scoring whole multi-step tasks on their outcome rewards whatever raises per-step reliability, including checking tool results and recovering from mistakes, which raises *p* in *pⁿ*. Training inside realistic harnesses also couples models to them ([§19](19-harness-engineering.md)).
 
-The weak point is the verifier. If it can be fooled, RL will find the way. Anthropic's Nov 2025 study gives the example of calling `sys.exit(0)` so a test harness reports success, and found that models which learned such hacks generalized to worse behavior, including sabotage. Skeptics in the TechCrunch piece called environments "prone to reward hacking." Karpathy said he was "bullish on environments and agentic interactions but … bearish on reinforcement learning specifically." For an app team the practical point is that you rarely train a frontier model, but your agent eval harness is most of an environment already, so building it well pays twice. The label "environment engineering" is niche; the industry is real.
+The weak point is the verifier: if it can be fooled, RL finds the way. Anthropic's Nov 2025 study uses the example of calling `sys.exit(0)` so a test harness reports success, and found that models which learned such hacks generalized to worse behavior, including sabotage. Skeptics quoted by TechCrunch called environments "prone to reward hacking," and Karpathy said he was "bullish on environments and agentic interactions but … bearish on reinforcement learning specifically." For an app team: you rarely train a frontier model, but your agent eval harness is most of an environment already, so building it well pays twice. The label "environment engineering" is niche; the industry is real.
 
 ### What fine-tuning can't do
 
-- **Reliably add facts.**
-  - Gekhman et al. (May 2024) found that fine-tuning examples containing new facts are "learned significantly slower" than examples consistent with what the model already knows. Once learned, they "linearly increase the model's tendency to hallucinate."
-  - Ovadia et al. (Dec 2023) found that retrieval "consistently outperforms" unsupervised fine-tuning for adding knowledge.
-  - Ground for facts (P5, [§09](09-rag.md)).
-- **Fix a bad task definition.** If your experts disagree, the model learns their disagreement. Fix the rubric first.
-- **Supply runtime context.** No weight knows today's order status. That takes a tool call.
-- **Leave everything else intact.** Qi et al. (Oct 2023) removed GPT-3.5 Turbo's safety guardrails with 10 adversarial fine-tuning examples costing under $0.20. They also found that even benign fine-tuning degraded safety, "to a lesser extent." Re-run safety evals on every fine-tune ([§32](32-security-guardrails.md)).
+- **Reliably add facts.** Gekhman et al. (May 2024) found that fine-tuning examples with new facts are "learned significantly slower" than ones consistent with what the model knows, and once learned they "linearly increase the model's tendency to hallucinate." Ovadia et al. (Dec 2023) found retrieval "consistently outperforms" unsupervised fine-tuning for adding knowledge. Ground for facts (P5, [§09](09-rag.md)).
+- **Fix a bad task definition.** If experts disagree, the model learns their disagreement. Fix the rubric first.
+- **Supply runtime context.** No weight knows today's order status; that's a tool call.
+- **Leave everything else intact.** Qi et al. (Oct 2023) removed GPT-3.5 Turbo's safety guardrails with 10 adversarial fine-tuning examples costing under $0.20, and found that even benign fine-tuning degraded safety "to a lesser extent." Re-run safety evals on every fine-tune ([§32](32-security-guardrails.md)).
 
 ### Catastrophic forgetting
 
-*Catastrophic forgetting* is the loss of earlier abilities when a network trains on something new. The mechanism: all skills share the same weights, and the loss you minimize mentions only the new task, so nothing protects the weights that old skills depend on. Kirkpatrick et al. (Dec 2016) countered it by "selectively slowing down learning on the weights important for those tasks." In LLM fine-tunes it shows up as weaker instruction following outside the trained format, lost safety behavior, and narrower reasoning. Mitigations:
-
-- LoRA, which forgets less.
-- Mixing general-purpose data into the training set.
-- Low learning rates and few epochs.
-- A KL penalty that keeps the model close to the reference model. DPO's β plays this role.
-- Above all, regression evals on general capabilities, not only on the target task.
+*Catastrophic forgetting* is the loss of earlier abilities when a network trains on something new. All skills share the same weights, and the loss you minimize mentions only the new task, so nothing protects the weights old skills depend on. Kirkpatrick et al. (Dec 2016) countered it by "selectively slowing down learning on the weights important for those tasks." In LLM fine-tunes it shows up as weaker instruction following outside the trained format, lost safety behavior and narrower reasoning. Mitigations: LoRA (forgets less), general-purpose data mixed into the training set, low learning rates and few epochs, a KL penalty toward the reference model (DPO's β plays this role), and above all regression evals on general capabilities, not only the target task.
 
 ### Hosting fine-tunes
 
-**Provider-hosted.** You upload data, and the vendor trains and serves the model. You run no GPUs, but the tuned model lives and dies with the vendor's base model. OpenAI's deprecation page states that "fine-tuned versions of these models follow the same shutdown schedule as their underlying base models," and it shuts down GPT-4.1 and GPT-4o fine-tunes on Jan 14, 2027. Other options as of Oct 2026:
+**Provider-hosted:** you upload data, the vendor trains and serves. No GPUs to run, but the tuned model lives and dies with the vendor's base model. OpenAI's deprecation page states that "fine-tuned versions of these models follow the same shutdown schedule as their underlying base models," and GPT-4.1 and GPT-4o fine-tunes shut down on Jan 14, 2027. As of Oct 2026, Google Vertex AI supports supervised tuning on Gemini 3.5 Flash, 3.1 Flash-Lite and the 2.5 family, with a configurable "adapter size." Amazon Bedrock lists fine-tuning for Nova, some Llama models and, of Claude models, only Claude 3 Haiku. Anthropic's own API offers no self-serve fine-tuning (**⚠ verify**).
 
-- **Google Vertex AI** supports supervised tuning on Gemini 3.5 Flash, 3.1 Flash-Lite and the 2.5 family, with a configurable "adapter size."
-- **Amazon Bedrock** lists fine-tuning for its Nova models, some Llama models and, among Claude models, only Claude 3 Haiku.
-- **Anthropic's own API** offers no self-serve fine-tuning (**⚠ verify**).
-
-**Self-hosted.** You own the weights, usually an open-weight base plus a LoRA adapter, and you serve them ([§31](31-open-weights-self-hosting.md)). Adapters are small, so one server can hold one base model plus many adapters and pick one per request. vLLM does this with `--enable-lora --lora-modules name=path` and a `max_loras` limit. You take on GPU capacity, upgrades and on-call.
+**Self-hosted:** you own the weights, usually an open-weight base plus a LoRA adapter, and serve them ([§31](31-open-weights-self-hosting.md)). Adapters are small, so one server can hold one base plus many adapters and pick one per request; vLLM does this with `--enable-lora --lora-modules name=path` and a `max_loras` limit. You take on GPU capacity, upgrades and on-call.
 
 ### Cost math: when it pays off
 
@@ -251,24 +229,11 @@ payback (months) = one-off cost / (monthly cost of the best alternative − mont
 worth it only if payback ≪ remaining life of the base model, and the task stays stable that long
 ```
 
-There are three lessons:
-
-- **Compare against the best cheap alternative,** not the naive baseline.
-- **Count the hidden one-offs:** labeling, building evals, and retraining for every new base model.
-- **Cap the horizon.** The tuned model's value ends when its base model is retired, or when a newer stock model beats it at the same price (P12). On 2025–2026 evidence, that is months, not years.
-
-Fine-tuning tends to pay when volume is very large, the task is narrow and stable, latency is critical, or data can't leave your infrastructure.
+Three lessons. Compare against the best cheap alternative, not the naive baseline. Count the hidden one-offs: labeling, building evals, and retraining for every new base model. And cap the horizon: the tuned model's value ends when its base model is retired or a newer stock model beats it at the same price (P12), which on 2025–2026 evidence means months, not years. Fine-tuning tends to pay when volume is very large, the task is narrow and stable, latency is critical, or data can't leave your infrastructure.
 
 ### Evals before and after
 
-Every rung is a hypothesis, and the eval decides ([§26](26-evals.md)).
-
-- **Before:** freeze an eval version, record the baseline of the best prompt-only system and of a smaller stock model, and write down the target.
-- **After:** run the same eval version on the target task, regression suites (general instruction following, formats, safety), and cost and latency. For agents, use repeated trials (pass^k).
-- **Ship carefully:** use a shadow deployment or an A/B test.
-- **Keep your data and evals in your own storage,** not only in a vendor console. OpenAI's hosted Evals platform is also being retired: read-only from Oct 31, shut down Nov 30, 2026.
-
-When the next base model ships, the same eval decides whether to retrain the fine-tune or delete it.
+Every rung is a hypothesis, and the eval decides ([§26](26-evals.md)). Before: freeze an eval version, record baselines for the best prompt-only system and for a smaller stock model, and write down the target. After: run the same version on the target task, on regression suites (general instruction following, formats, safety) and on cost and latency, with repeated trials (pass^k) for agents, then ship behind a shadow or A/B test. Keep data and evals in your own storage, not only a vendor console: OpenAI's hosted Evals platform is also being retired (read-only Oct 31, shut down Nov 30, 2026). When the next base model ships, the same eval decides whether to retrain the fine-tune or delete it.
 
 ## Comparison
 
@@ -288,10 +253,9 @@ When the next base model ships, the same eval decides whether to retrain the fin
 
 | | Full | LoRA | QLoRA |
 |---|---|---|---|
-| Trains | All weights | Small adapters, r × (d_in + d_out) per matrix | Same adapters over a 4-bit base |
 | Training memory, 8B model (rough) | ~128 GB | ~17 GB | ~5 GB |
-| Artifact | Full model copy | Megabyte-scale adapter | Megabyte-scale adapter |
-| Quality | Highest ceiling on large datasets | Matches full at typical post-training sizes, if all layers are adapted | Close to LoRA |
+| Artifact | Full model copy | Megabyte-scale adapter | Same as LoRA |
+| Quality | Highest ceiling on large datasets | Matches full at typical sizes if all layers are adapted | Close to LoRA |
 | Forgetting | Most | Less | Less |
 | Serving | One deployment per fine-tune | Many adapters on one base | Same as LoRA |
 
@@ -316,10 +280,6 @@ A better model, whether prompted, tuned or distilled, still has to run in produc
 
 ## Check your understanding
 
-**Q: Why try prompt optimization before fine-tuning?**
-
-It changes the context, not the weights. The result is a readable, versioned prompt that you can roll back and run on any model, and it needs only a dev set and a metric. Reflective methods such as GEPA report large gains from relatively few rollouts. The costs are many eval calls per round and a risk of overfitting a small dev set. It won't fix the per-call cost or latency of a big model; that's distillation's job.
-
 **Q: What does "low rank" mean in LoRA, and why does it cut training memory so much?**
 
 LoRA writes each weight update as a product B·A through r dimensions, so a 4096 × 4096 matrix trains 16 × 8,192 ≈ 131K parameters at r = 16 instead of 16.8M. Optimizer state costs about 16 bytes per *trainable* parameter, while frozen weights cost only 2 bytes each in 16-bit, or about 0.5 in 4-bit with QLoRA. That takes an 8B model from about 128 GB to 17 GB, or about 5 GB. The tradeoff is capacity: if the task needs more change than the rank allows, as with large datasets, LoRA falls behind full fine-tuning.
@@ -331,10 +291,6 @@ Fine-tuning absorbs new facts slowly, and once it does, it increases hallucinati
 **Q: What would happen if you ran RFT on a task where the model currently scores 0%?**
 
 Nothing useful. RL raises the probability of samples that score above the group average. If every sample scores zero, every sample sits exactly at the average, so there's no gradient signal to follow. Make the task reachable first: add context or tools, decompose it, or run SFT on demonstrations. Partial-credit graders can help, but each new way to score is a new way to hack the score.
-
-**Q: SFT vs DPO: when is a preference pair better than a demonstration?**
-
-SFT imitates one target per prompt, so it needs someone who can write the ideal response. DPO needs only a judgment that A beats B, which is cheaper and more reliable when quality is a matter of degree, as with tone, emphasis or concision. DPO also shifts the model relative to a reference model, with β limiting drift. But it learns any confound in the pairs, such as length, and it can't explore beyond them. Use SFT for formats and skills with a right answer, and DPO for "better vs worse."
 
 **Q: How is an RL environment different from an agent eval?**
 

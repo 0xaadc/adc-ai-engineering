@@ -40,7 +40,7 @@ His evidence came from published HumanEval coding results that his team analysed
 - **Evaluator-optimizer**: one call generates and another critiques, in a loop.
 - **Autonomous agent**: "typically just LLMs using tools based on environmental feedback in a loop."
 
-Its core advice is to find "the simplest solution possible, and only increase complexity when needed." For engineering it's the most useful of the three, because every entry says who owns the control flow.
+Its core advice is "finding the simplest solution possible, and only increasing complexity when needed." For engineering it's the most useful of the three, because every entry says who owns the control flow.
 
 **Antonio Gullí's *Agentic Design Patterns* (Springer, 2025).** This is the broadest catalog: 21 pattern chapters, checked against the publisher's chapter metadata, plus appendices. The chapters, in order:
 

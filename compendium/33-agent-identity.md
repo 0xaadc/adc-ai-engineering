@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-In 2025–2026, agents stopped working only on your laptop and began acting across SaaS systems on users' behalf: reading a CRM, filing Jira tickets, querying a warehouse, calling other companies' agents. MCP added OAuth-based authorization in its 2025-03-26 revision and has tightened it in every revision since. [§32](32-security-guardrails.md) showed that agent security rests on least privilege, then asked *whose* privilege. This section answers that with identity: who the agent is, whom it acts for, what it may do, and how you prove it afterwards. P9 (any text in context can act as an instruction) sets the rules for credentials, P6 (actions happen in code you control) says where they live, and P11 explains why the answer is OAuth rather than something new.
+In 2025–2026, agents began acting across SaaS systems on users' behalf: reading a CRM, filing Jira tickets, querying a warehouse, calling other companies' agents. MCP added OAuth-based authorization in its 2025-03-26 revision and has tightened it in every revision since. [§32](32-security-guardrails.md) showed that agent security rests on least privilege, then asked *whose* privilege. This section answers with identity: who the agent is, whom it acts for, what it may do, and how you prove it afterwards. P9 sets the rules for credentials, P6 says where they live, and P11 explains why the answer is OAuth rather than something new.
 
 ## Why this exists
 
@@ -42,37 +42,21 @@ A **principal** is anything that can be authenticated and granted permissions: a
 
 ### 2. OAuth 2.1, briefly
 
-OAuth is the standard for **delegated authorization**: letting a client use an API on a user's behalf without ever seeing the user's password. It has four roles:
+OAuth is the standard for **delegated authorization**: letting a client use an API on a user's behalf without seeing the user's password. Its four roles are the **resource owner** (the user), the **client** (your agent application), the **authorization server** (AS), which signs the user in, asks consent and issues tokens, and the **resource server**, the API that accepts the tokens. Four terms carry most of the meaning:
 
-- the **resource owner** (the user)
-- the **client** (your agent application)
-- the **authorization server** (AS), which signs the user in, asks for consent and issues tokens
-- the **resource server**, the API that accepts the tokens
-
-Four terms carry most of the meaning:
-
-- **Access token:** a short-lived credential sent on every API request (`Authorization: Bearer ...`). Whoever holds a bearer token can use it.
-- **Refresh token:** a longer-lived credential the client exchanges for fresh access tokens. Keep it secret and never send it to resource servers.
+- **Access token:** a short-lived credential sent on every request (`Authorization: Bearer ...`). Whoever holds it can use it.
+- **Refresh token:** a longer-lived credential the client trades for fresh access tokens. Keep it secret; it never goes to resource servers.
 - **Scope:** a named permission, such as `invoices:read`.
-- **Audience:** which resource server a token is valid for (the `aud` claim). The `resource` parameter of RFC 8707 asks the AS to bind the token to one audience.
+- **Audience:** the resource server a token is valid for (the `aud` claim). RFC 8707's `resource` parameter asks the AS to bind the token to one audience.
 
-The **authorization code flow with PKCE** is the flow for a user present at a browser:
+In the **authorization code flow with PKCE**, used when a user is at a browser:
 
-1. The client makes a random secret, the **code verifier**, and sends only its SHA-256 hash, the **code challenge**, with the authorization request.
-2. The user logs in at the AS and consents to the scopes.
-3. The AS redirects back to the client with a short-lived **authorization code**.
-4. The client redeems the code *plus the verifier*. The AS hashes the verifier and checks it against the challenge.
+1. The client makes a random **code verifier** and sends only its SHA-256 hash, the **code challenge**, with the authorization request.
+2. The user logs in at the AS and consents.
+3. The AS redirects back with a short-lived **authorization code**.
+4. The client redeems the code *plus the verifier*, and the AS checks the verifier's hash against the challenge.
 
-**PKCE** (Proof Key for Code Exchange, RFC 7636) means an attacker who intercepts the code can't redeem it without the verifier, which never left the client.
-
-**OAuth 2.1** is still an IETF draft (revision 16, Sep 2026). It consolidates a decade of OAuth 2.0 security practice:
-- PKCE is required for the authorization code flow, and its `plain` method is removed.
-- The implicit and password grants are gone.
-- Redirect URIs must match exactly.
-- Bearer tokens are no longer allowed in query strings.
-- Refresh tokens for public clients must be sender-constrained or one-time use.
-
-An agent acting as itself uses the **client credentials grant** instead, with no user and no browser.
+**PKCE** (Proof Key for Code Exchange, RFC 7636) means an intercepted code is useless without the verifier, which never left the client. **OAuth 2.1**, still an IETF draft (revision 16, Sep 2026), consolidates a decade of OAuth 2.0 practice. PKCE is required and its `plain` method removed, the implicit and password grants are gone, redirect URIs must match exactly, bearer tokens may not appear in query strings, and public clients' refresh tokens must be sender-constrained or one-time use. An agent acting as itself uses the **client credentials grant** instead, with no user and no browser.
 
 ```python
 import base64, hashlib, secrets
@@ -112,11 +96,9 @@ print(authorize_url)
 
 ### 3. MCP authorization in the 2026-07-28 spec
 
-MCP's authorization spec applies to HTTP transports and is itself optional. A stdio server "SHOULD NOT follow this specification" and takes credentials from its environment instead. When it applies **(GA)**:
+MCP authorization is optional and covers HTTP transports. A stdio server "SHOULD NOT follow this specification" and takes credentials from its environment. Where it applies **(GA)**, the MCP server is an OAuth 2.1 resource server and the MCP client an OAuth client, with a separate or co-hosted authorization server.
 
-**Roles.** The MCP server is an OAuth 2.1 resource server, and the MCP client is an OAuth client. A separate or co-hosted authorization server handles users and issues tokens.
-
-**Discovery.** MCP servers MUST publish **Protected Resource Metadata** (RFC 9728), a JSON document at a well-known URL listing the server's `authorization_servers`. Clients then fetch the AS's metadata (RFC 8414 or OpenID Connect Discovery, trying the specified well-known paths in order) and MUST check that its `issuer` matches.
+**Discovery.** Servers MUST publish **Protected Resource Metadata** (RFC 9728), a JSON document at a well-known URL listing their `authorization_servers`. Clients then fetch the AS's metadata (RFC 8414 or OpenID Connect Discovery) and MUST check that its `issuer` matches.
 
 ```text
 MCP client                     MCP server (resource server)          Authorization server
@@ -132,40 +114,29 @@ MCP client                     MCP server (resource server)          Authorizati
   │ POST /mcp  Authorization: Bearer … ►│ validate audience + scope → 200, or 403 insufficient_scope
 ```
 
-**Client registration.** An AS must know a client before issuing it tokens. The spec's order of preference:
-1. **Pre-registration**, when the client and server already have a relationship.
-2. **Client ID Metadata Documents (CIMD)**, a SHOULD. The `client_id` is an HTTPS URL that points to a JSON document with the client's name and redirect URIs. The AS fetches it, checks that the redirect URI matches, and may apply domain trust policies. It advertises support with `client_id_metadata_document_supported`. This suits MCP's common case of a client and server that have never met.
+**Client registration.** An AS must know a client before issuing tokens. In order of preference:
+1. **Pre-registration**, when client and server already have a relationship.
+2. **Client ID Metadata Documents (CIMD)**, a SHOULD. The `client_id` is an HTTPS URL pointing to a JSON document with the client's name and redirect URIs. The AS fetches it, checks the redirect URI, and may apply domain trust policies. It fits MCP's common case of a client and server that have never met.
 3. **Dynamic Client Registration** (RFC 7591), deprecated in 2026-07-28 and "retained for backwards compatibility".
-4. Asking the user to enter client details.
+4. Asking the user for client details.
 
-**The flow's hard requirements:**
-- PKCE with `S256`. Clients MUST refuse to proceed if the AS metadata lacks `code_challenge_methods_supported`.
-- The `resource` parameter, set to the MCP server's canonical URI, in both the authorization and the token request.
-- The token in the `Authorization` header of every request, never in the query string.
-- Servers MUST validate that each token was issued "specifically for them as the intended audience".
+**Hard requirements.** PKCE with `S256`, and clients MUST refuse an AS whose metadata lacks `code_challenge_methods_supported`. The `resource` parameter, set to the server's canonical URI, goes in both the authorization and token requests. The token travels in the `Authorization` header of every request, never the query string. Servers MUST validate that tokens were issued "specifically for them as the intended audience". New in 2026-07-28, clients validate the `iss` parameter (RFC 9207), which defeats **mix-up attacks** where a malicious AS gets a client to send it a code from an honest one, and they key stored credentials to the issuing AS.
 
-2026-07-28 also requires clients to validate the `iss` parameter in authorization responses (RFC 9207), which defeats **mix-up attacks**, where a malicious AS tricks a client into sending it a code issued by an honest one. Clients must also key stored credentials to the issuer that granted them.
+**Step-up authorization.** Start with minimal scopes. When a call needs more, the server answers `403` with `error="insufficient_scope"` and the required scopes, and the client re-authorizes with the union of old and new scopes, retrying only a few times. The security guide's common mistakes include wildcard scopes, publishing every scope up front, and treating a token's scopes as sufficient "without server-side authorization logic."
 
-**Step-up authorization.** Start with minimal scopes. When a call needs more, the server answers `403` with `error="insufficient_scope"` and the scopes required. The client re-authorizes with the union of its old and new scopes, and gives up after a few retries. The security guide lists the common mistakes: wildcard or "full-access" scopes, publishing every scope up front, and treating a token's scopes as sufficient "without server-side authorization logic."
-
-**Authorization extensions.** **OAuth Client Credentials** (draft) covers machine-to-machine access and recommends signed JWT assertions (RFC 7523) over client secrets. **Enterprise-Managed Authorization** (stable in the ext-auth repository) makes the company's identity provider the decision-maker, covered below.
+**Extensions.** **OAuth Client Credentials** (a draft) covers machine-to-machine access and recommends signed JWT assertions (RFC 7523) over client secrets. **Enterprise-Managed Authorization** (stable) hands the decision to the company's identity provider, as described below.
 
 ### 4. Token passthrough and the confused deputy
 
-**Token passthrough** is an MCP server accepting a token that wasn't issued to it and forwarding it to a downstream API. The spec forbids it: servers "MUST NOT accept or transit any other tokens." The security guide lists the reasons:
-- It bypasses controls such as rate limits and validation that depend on the token's audience.
-- Downstream logs show the wrong identity, and the server can't tell clients apart.
-- A stolen token turns the server into an exfiltration proxy.
+**Token passthrough** is an MCP server accepting a token not issued to it and forwarding it downstream. Servers "MUST NOT accept or transit any other tokens." The security guide's reasons: it bypasses controls such as rate limits that depend on the token's audience, logs show the wrong identity, and a stolen token turns the server into an exfiltration proxy. When an MCP server calls GitHub, it should act as GitHub's OAuth client with a *separate* token from GitHub's authorization server.
 
-The correct design: when the MCP server calls GitHub, it acts as an OAuth client to GitHub with a *separate* token issued by GitHub's authorization server.
+The spec also documents a confused-deputy attack on **MCP proxy servers** that use one static client ID with a third-party AS. After a user consents once, the third-party AS sets a consent cookie. An attacker registers a new client with a malicious redirect URI and sends the user a link, the cookie skips the consent screen, and the code goes to the attacker. The fix is per-client consent at the proxy.
 
-The spec also documents a confused-deputy attack on **MCP proxy servers** that use one static client ID with a third-party AS. A user consents once, and the third-party AS sets a consent cookie. An attacker then registers a new client with a malicious redirect URI and sends the user a link, and the cookie skips the consent screen, so the code goes to the attacker. The mitigation is per-client consent at the proxy.
-
-At the agent level, the same problem appears whenever a high-privilege agent trusts a low-privilege one. OWASP's ASI03 example: an email-sorting agent relays a forged instruction to a finance agent, which pays because it "trusts an internal agent". Authorize each hop against the *original user's* identity and intent. **OAuth Token Exchange** (RFC 8693) lets a service swap an incoming token for a new, narrower one for the next hop, and its `act` (actor) claim records who is acting for whom.
+The same problem appears whenever a high-privilege agent trusts a low-privilege one. In OWASP's ASI03 example, an email-sorting agent relays a forged instruction to a finance agent, which pays because it trusts "an internal agent". Authorize each hop against the *original user's* identity. **OAuth Token Exchange** (RFC 8693) swaps an incoming token for a narrower one for the next hop, and its `act` (actor) claim records who acts for whom.
 
 ### 5. Scoped, short-lived credentials that never enter context
 
-The P9 rule for secrets: **anything in the context window can leak**, through injection, logs, traces or the model repeating it. So credentials stay in the harness (P6) and are attached when a tool executes, never shown to the model. The **broker** below holds refresh tokens taken from a **vault** (a secrets manager), mints access tokens bound to one audience with the minimum scope for each tool, caches them for minutes, and returns only data to the model. The `tool_use` dict mirrors the Messages API block ([§10](10-tool-use.md)), and the return value becomes a `tool_result`.
+The P9 rule for secrets: **anything in the context window can leak**, through injection, logs or the model repeating it. So credentials stay in the harness (P6), attached when a tool executes and never shown to the model. The **broker** below holds refresh tokens from a **vault** (a secrets manager), mints audience-bound, minimum-scope access tokens per tool, caches them for minutes, and returns only data. The `tool_use` dict mirrors the Messages API block ([§10](10-tool-use.md)), and the return value becomes a `tool_result`.
 
 ```python
 import json, secrets, time
@@ -210,12 +181,12 @@ def run_tool(broker, user, tool_use: dict, approve, call_api, audit: list) -> st
     return json.dumps(result)                      # only data goes back into the context
 ```
 
-Hosted runtimes now do this for you. In **Claude Managed Agents** **(Preview)**, vault credentials never enter the sandbox. MCP calls pass through a proxy that adds the OAuth token, and environment-variable secrets appear inside the sandbox as opaque placeholders that are replaced at egress, only on requests to allowed hosts.
+Hosted runtimes now do this for you. In **Claude Managed Agents** **(Preview)**, vault credentials never enter the sandbox: MCP calls pass through a proxy that adds the OAuth token, and environment-variable secrets appear in the sandbox as opaque placeholders replaced at egress, only on requests to allowed hosts.
 
-**Workload identity** removes even the refresh token. The platform a workload runs on (Kubernetes, a cloud VM, a CI runner) issues it a short-lived signed identity token, such as an OIDC JWT or a SPIFFE ID document. The workload exchanges that token for a short-lived access token, so no long-lived secret is stored anywhere. Examples:
-- **OpenAI's workload identity federation.** An organization owner registers a trusted identity provider and maps token claims to a service account. Supported sources include Kubernetes, AWS, Azure, Google Cloud, GitHub Actions and SPIFFE, with X.509 certificates in beta. The exchange returns no refresh token: "To renew, repeat the exchange."
-- **Anthropic's Workload Identity Federation** **(GA)**, through service accounts and federation rules. Its identity-backed API keys belong to a user or service account and stop working when that identity is removed.
-- **Cloud IAM** does the same inside each cloud: AWS IAM roles, Google Cloud workload identity federation, Azure managed identities.
+**Workload identity** removes even the refresh token. The platform a workload runs on (Kubernetes, a cloud VM, a CI runner) issues it a short-lived signed identity token, such as an OIDC JWT or a SPIFFE identity document, which it exchanges for a short-lived access token. No long-lived secret is stored anywhere.
+- **OpenAI's workload identity federation** maps a trusted provider's token claims to a service account. Sources include Kubernetes, AWS, Azure, Google Cloud, GitHub Actions and SPIFFE, with X.509 certificates in beta. No refresh token is issued: "To renew, repeat the exchange."
+- **Anthropic's Workload Identity Federation** **(GA)** uses service accounts and federation rules. Its identity-backed API keys stop working when their user or service account is removed.
+- **Cloud IAM** does the same within each cloud: AWS IAM roles, Google Cloud workload identity federation, Azure managed identities.
 
 ### 6. Per-tool authorization and step-up approval
 
@@ -242,18 +213,14 @@ A2A states that "identity information is handled at the protocol layer, not with
 
 ### 9. Emerging standards (drafts, not settled)
 
-"Agent identity" is a label still forming. Most of the work so far applies existing OAuth and workload-identity standards rather than inventing new ones. As of October 2026:
+"Agent identity" is a label still forming, and most of the work applies existing OAuth and workload-identity standards rather than inventing new ones. As of October 2026:
 
-- **IETF WIMSE**, the Workload Identity in Multi System Environments working group: *AI Identity Management System* (`draft-ietf-wimse-aims-00`, Sep 15, 2026). Its authors are from Defakto, AWS, Zscaler, Ping Identity, OpenAI and Okta, and it replaces `draft-klrc-aiagent-auth`. Its thesis is "agents are workloads": use SPIFFE identifiers, OAuth, transaction tokens and CIBA, and define no new protocol. It is an informational working-group draft.
-- **IETF OAuth working group:**
-  - *Identity Assertion JWT Authorization Grant* (ID-JAG, rev 04), the basis of MCP's Enterprise-Managed Authorization
-  - *Identity and Authorization Chaining Across Domains* (rev 17, in the RFC Editor queue)
-  - *Transaction Tokens* (rev 11)
-  - OAuth 2.1 itself (rev 16)
+- **IETF WIMSE** (Workload Identity in Multi System Environments) working group: *AI Identity Management System* (`draft-ietf-wimse-aims-00`, Sep 15, 2026), by authors from Defakto, AWS, Zscaler, Ping Identity, OpenAI and Okta, replacing `draft-klrc-aiagent-auth`. Its thesis is "agents are workloads": use SPIFFE identifiers, OAuth, transaction tokens and CIBA, and define no new protocol. It is an informational working-group draft.
+- **IETF OAuth working group:** *Identity Assertion JWT Authorization Grant* (ID-JAG, rev 04), the basis of MCP's Enterprise-Managed Authorization; *Identity and Authorization Chaining Across Domains* (rev 17, in the RFC Editor queue); *Transaction Tokens* (rev 11); and OAuth 2.1 itself (rev 16).
 - **Individual drafts**, such as *On-Behalf-Of User Authorization for AI Agents* (rev 02, Feb 2026), are proposals, not adopted work.
-- **OpenID Foundation:** *Identity Management for Agentic AI* (Oct 7, 2025). It concludes that existing standards cover agents working inside one organization or on a user's own data, and flags recursive delegation, consent fatigue and fragmented agent identities as open gaps.
+- **OpenID Foundation:** *Identity Management for Agentic AI* (Oct 7, 2025) finds existing standards cover agents inside one organization or on a user's own data, and flags recursive delegation, consent fatigue and fragmented agent identities as open gaps.
 
-Vendor products, such as the agent identity offerings OWASP names from Microsoft Entra, AWS and Salesforce, package these ideas with different names.
+Vendor products, such as the Microsoft Entra, AWS and Salesforce offerings that OWASP names, package these ideas under their own names.
 
 ### 10. Enterprise rollout
 
@@ -274,14 +241,12 @@ You have solved this problem before, in the warehouse.
 
 ### Failure modes
 
-- A shared admin service account, which makes every user an admin through the prompt.
-- Token passthrough, or accepting tokens without checking the audience.
-- Long-lived keys in prompts, sandboxes or environment variables the agent's code can read.
-- Wildcard scopes requested up front "to avoid prompts later".
-- Tokens cached across users or tasks (ASI03's memory-based escalation).
-- A UI click treated as authorization.
-- Unsigned or unverified Agent Cards.
-- Agent identities with no owner.
+- A shared admin service account, making every user an admin through the prompt.
+- Token passthrough, or skipping audience checks.
+- Long-lived keys in prompts, sandboxes or readable environment variables.
+- Wildcard scopes requested up front.
+- Tokens cached across users or tasks (ASI03).
+- A UI click treated as authorization; unverified Agent Cards; ownerless agent identities.
 
 ## Comparison
 
