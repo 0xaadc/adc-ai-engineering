@@ -9,7 +9,7 @@ Part 6 covers agent archetypes. [§22](22-build-a-harness.md) built a harness fr
 | Stage | What the tool does | Who runs the code | Examples |
 |---|---|---|---|
 | Autocomplete | Predicts the next lines as you type | You | GitHub Copilot preview (Jun 29, 2021), built on OpenAI's Codex *model* |
-| Chat in the IDE | You paste code and errors in and copy answers out | You | Copilot Chat, Cursor (2023) **(⚠ verify: exact dates)** |
+| Chat in the IDE | You paste code and errors in and copy answers out | You | Copilot Chat (announced Mar 22, 2023; **(GA)** Dec 29, 2023); Cursor (changelog starts Mar 2023) |
 | Agentic IDEs and CLIs | Searches, edits and runs tests in a loop on your machine | The agent, with your approval | Copilot agent mode (Feb 6, 2025); Claude Code preview (Feb 24, 2025), **(GA)** May 22, 2025; Codex CLI (Apr 16, 2025); Gemini CLI (Jun 25, 2025) |
 | Cloud and background agents | Takes an assigned task, works in a remote sandbox, opens a PR | The agent, in a sandbox | Devin (Mar 2024); Codex cloud (May 2025); Copilot coding agent (May 19, 2025); Claude Code on the web (Oct 20, 2025, **(GA)** as "cloud sessions" Sep 23, 2026) |
 
@@ -149,7 +149,7 @@ Product undo is narrower than it looks. Claude Code's `/rewind` restores edits m
 
 ### AGENTS.md and CLAUDE.md
 
-The model is stateless (P2), so whatever a new teammate would need must be in its context. An **instruction file** is plain Markdown that the harness loads at the start of every session: commands, conventions, boundaries. Codex read `AGENTS.md` from its May 2025 launch, and in Aug 2025 the name became a shared convention at agents.md, built with Amp, Jules, Cursor and Factory **(⚠ verify: exact launch date)**. The site lists 60k+ repositories and says the format "is now stewarded by the Agentic AI Foundation." That is P11: one file every agent reads, instead of one rules file per agent.
+The model is stateless (P2), so whatever a new teammate would need must be in its context. An **instruction file** is plain Markdown that the harness loads at the start of every session: commands, conventions, boundaries. Codex read `AGENTS.md` from its May 2025 launch, and in Aug 2025 the name became a shared convention at agents.md, built with Amp, Jules, Cursor and Factory (first commit Aug 19, 2025). The site lists 60k+ repositories and says the format "is now stewarded by the Agentic AI Foundation." That is P11: one file every agent reads, instead of one rules file per agent.
 
 The format has no required fields, and in a monorepo "the closest AGENTS.md to the edited file wins." Claude Code reads `CLAUDE.md`. Since v2.1.277 it also reads `AGENTS.md` when no `CLAUDE.md` exists, and you can import it explicitly with `@AGENTS.md`. Keep each file under about 200 lines, because longer ones "reduce adherence" (P3). It should be a map, not a manual, with every line traceable to a real mistake ([§19](19-harness-engineering.md)). A sample for a data-pipeline repository:
 

@@ -72,12 +72,12 @@ The task is tiny on purpose: create `greet.py` that prints exactly `hello, harne
 
 trace summary
   kind     spans replayed errors  tok in tok out       ms
-  model        7        0      0    4867     293      4.0
+  model        7        0      0    4849     293      4.0
   tool         6        0      1       0       0     59.4
   compact      1        0      0       0       0      0.1
   goal         2        0      1       0       0     39.2
 
-result: DONE after 2 iteration(s) | steps executed 18, replayed 0 | ~5,160 of 20,000 tokens
+result: DONE after 2 iteration(s) | steps executed 18, replayed 0 | ~5,142 of 20,000 tokens
 workspace: /tmp/mini_harness/stub
 ```
 
@@ -229,9 +229,11 @@ class ToolRegistry:
             return self.result(call, f"{type(e).__name__}: {e}", True)
 ```
 
-The registry enforces the [§10](10-tool-use.md) contract: every `tool_use` gets exactly one `tool_result` with the same id, and a failure comes back with `"is_error": true` and a message saying what went wrong, never as an exception that kills the loop. Only the model can change the plan, so the model has to hear about the failure. The jail resolves `..`, absolute paths and symlinks before comparing, and it fences off `.harness/`, so the agent can't rewrite its own notes or step log ([§19](19-harness-engineering.md): keep sensors out of the maker's write path).
+The registry enforces the [§10](10-tool-use.md) contract: every `tool_use` gets exactly one `tool_result` with the same id, and a failure comes back with `"is_error": true` and a message saying what went wrong, never as an exception that kills the loop. Only the model can change the plan, so the model has to hear about the failure. The jail resolves `..`, absolute paths and symlinks before comparing, and it fences off `.harness/`, so the file tools can't rewrite the agent's notes or step log ([§19](19-harness-engineering.md): keep sensors out of the maker's write path).
 
-`add_file_tools` registers `read_file`, `write_file` and `run_check`. `run_check` uses an **allow-list**: it accepts exactly `python3 <file>`, runs it in a child process with a 10-second timeout, and reports the exit code and output. You can list what a task needs, but not everything dangerous, so the allow-list is the real control (P9, [§20](20-agent-runtime.md)).
+`add_file_tools` registers `read_file`, `write_file` and `run_check`. `run_check` uses an **allow-list**: it accepts exactly `python3 <file>`, runs it in a child process with a 10-second timeout, and reports the exit code and output. You can list what a task needs, but not everything dangerous, so the allow-list is a stronger check than the blocklist in layer 5 (P9).
+
+**Neither the jail nor the command checks are a sandbox.** The jail only checks the paths the file tools are given. The agent writes the file that `run_check` then runs, so `python3 greet.py` can do anything your user account can: read your SSH keys, delete files outside the workspace, edit `.harness/`, or call the network. Containment needs OS-level isolation of the filesystem and network ([§20](20-agent-runtime.md)), plus the threat model and least-privilege rules in [§32](32-security-guardrails.md). The stub's script is harmless, but with `--real` a model writes the code, so run it inside a throwaway container or VM.
 
 ### Layer 4: the agent loop
 
@@ -329,7 +331,7 @@ class Hooks:
 Hooks are deterministic guardrails: they run on every call, whatever the model intends (P6). Pre-tool hooks can deny a call, and a denial comes back as an `is_error` result, so the model sees why and can change its plan. The post-tool hook adds to a result.
 
 - **`deny_outside_workspace`** blocks a path outside the jail. The tool would refuse it anyway (defense in depth), but the hook's message tells the model what to do instead.
-- **`deny_dangerous_commands`** is a regex blocklist, and it caught the `rm -rf` in the demo. As [§19](19-harness-engineering.md) warns, a blocklist is a speed bump, not containment. The allow-list, and in production a sandbox, do the real work.
+- **`deny_dangerous_commands`** is a regex blocklist, and it caught the `rm -rf` in the demo. As [§19](19-harness-engineering.md) warns, a blocklist is a speed bump, not containment. The allow-list narrows what can run, and only a real sandbox can contain it ([§20](20-agent-runtime.md), [§32](32-security-guardrails.md)).
 - **`ask_approval`** calls an approval callback before every write. The demo approves automatically. With `--ask` you answer at the terminal, and anything but `y` blocks the write. The approval happens inside the journaled tool step, so a resumed run doesn't ask again: [§20](20-agent-runtime.md)'s human approval as a durable step, in miniature.
 - **`back_pressure`** reruns the task's check after every successful `.py` write and appends the verdict to the write's result. That's how the agent learned at turn 2 that it had printed `'Hello, harness!'`. In [§21](21-loop-engineering.md)'s terms it is a fast computational sensor whose message says exactly what's wrong, in one line.
 
@@ -361,10 +363,11 @@ class Compactor:
                     lines.append(f"  -> {status}: {str(b['content']).replace(chr(10), ' ')[:160]}")
         summary = ("<summary>Earlier turns were compacted; re-read files or reload skills if you "
                    "need their full text.\n" + "\n".join(lines) + "\n</summary>")
-        # Preserved thinking: on Claude 5.5-family models a thinking block is valid only with
-        # the exact history that produced it. Once a summary replaces that history, replaying
-        # the kept turns' thinking blocks is rejected, so strip them (text and tool_use stay).
-        # Compact only between tool rounds: here every tool_use already has its tool_result.
+        # Preserved thinking: on Claude 5.5-family models (and Fable 5.1) a thinking block is
+        # valid only with the exact history that produced it. Once a summary replaces that
+        # history, replaying the kept turns' thinking can get a 400, so strip it (text and
+        # tool_use stay). Every kept tool_use keeps its tool_result, but the open tool round
+        # loses its reasoning: the docs prefer server-side compaction or a no-tail summary.
         thinking = ("thinking", "redacted_thinking")
         tail = [{"role": m["role"],
                  "content": [b for b in m["content"] if b["type"] not in thinking]}
@@ -377,7 +380,15 @@ class Compactor:
 
 Context is a finite budget that rots as it grows (P3), so before each call the harness estimates the prompt at about four characters per token (real counts come from `usage` or `count_tokens`). Past the threshold, `compact()` keeps the latest tool round verbatim and replaces everything before it with a summary: the task, each call made, and the start of each result, errors included, since observed failures are worth keeping ([§16](16-context-engineering.md)). Two simplifications keep the demo deterministic. The threshold is absurdly low, 850 estimated tokens, where real triggers sit in the tens or hundreds of thousands (the API's own threshold compaction **(Preview)** defaults to 150K). And the summary is extractive, where production harnesses have the model write it with a prompt tuned for recall.
 
-Two rules matter on current models. The first is **preserved thinking**: on Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1, each thinking block is bound to the exact system prompt, tools and messages before it. A summary you write yourself changes that prefix, so replaying the kept turns' thinking blocks fails the check and the request is rejected. Anthropic's docs give two client-side fixes. One is to strip `thinking` and `redacted_thinking` from the kept turns while keeping their `text` and `tool_use` blocks, which is what `compact()` does. The other, which they recommend, is "simple compaction": one summary message plus the next instruction, with nothing earlier replayed. The second rule: never compact mid tool round. `compact()` runs only at the top of a turn, when every `tool_use` has its `tool_result`.
+Two rules matter on current models. The first is **preserved thinking**: on Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1, each thinking block is bound to the exact system prompt, tools and messages before it. A summary you write yourself changes that prefix, so replaying the kept turns' thinking blocks fails the check, and the API rejects the request with a 400. That's the default for accounts created on or after Aug 31, 2026; older accounts get it only when they opt in. For a summary you write yourself, Anthropic's docs give three ways out:
+
+- Strip `thinking` and `redacted_thinking` from the kept turns, keeping their `text` and `tool_use` blocks. This is what `compact()` does.
+- Send `thinking.block_binding.prefix_mismatch_behavior: "drop_block"` (beta header `thinking-binding-controls-2026-08-01`) and let the API drop the stale blocks.
+- Use "simple compaction", which the docs recommend: one summary message plus the next instruction, with nothing earlier replayed.
+
+Server-side compaction **(Preview)** avoids the problem, and its on-demand mode (beta `compact-2026-09-04`) can keep the recent turns with their thinking.
+
+The second rule: don't compact in the middle of a tool round. The docs say an assistant turn whose `tool_use` is waiting for its `tool_result` should go back with its thinking intact, so the model finishes the round with its reasoning. `compact()` keeps every `tool_use` together with its `tool_result`, so the request stays valid. But it runs right after a tool result and strips that turn's thinking, so the model finishes the round without its earlier reasoning. That's a deliberate toy shortcut. A production harness compacts on the server, or between user turns.
 
 ### Layer 7: skills
 
@@ -470,16 +481,16 @@ Every model call, tool call, notes read and goal check is a **step**. Its result
   ...
 trace summary
   kind     spans replayed errors  tok in tok out       ms
-  model        7        7      0    4867     293      0.1
+  model        7        7      0    4849     293      0.1
   tool         6        6      1       0       0      0.0
   compact      1        0      0       0       0      0.1
   goal         2        2      1       0       0      0.0
 
-result: DONE after 2 iteration(s) | steps executed 0, replayed 18 | ~5,160 of 20,000 tokens
+result: DONE after 2 iteration(s) | steps executed 0, replayed 18 | ~5,142 of 20,000 tokens
 workspace: /tmp/mini_harness/stub
 ```
 
-The more realistic case is a crash. `--crash-after 6` kills the process after six new steps, just after the model's third reply was journaled. The rerun replays those six instantly, with no model call and no second write, and then does the rest for real:
+The more realistic case is a crash. `--crash-after 6` kills the process after six new steps, just after the model's third reply was journaled, and exits with status 1, as a real crash would. The rerun replays those six instantly, with no model call and no second write, and then does the rest for real:
 
 ```text
 $ python3 compendium/code/mini_harness.py --fresh --crash-after 6
@@ -496,7 +507,7 @@ $ python3 compendium/code/mini_harness.py
   model   i1.t3          (replayed) tool_use: run_check(command='rm -rf __pycache__ && python3 greet.py')
   tool    run_check      ERROR: Blocked: 'rm -rf __pycache__ && python3 greet.py' deletes files or chains commands. Run one python3 file.
   ...
-result: DONE after 2 iteration(s) | steps executed 12, replayed 6 | ~5,160 of 20,000 tokens
+result: DONE after 2 iteration(s) | steps executed 12, replayed 6 | ~5,142 of 20,000 tokens
 ```
 
 Three rules from [§20](20-agent-runtime.md) show up in the code:
@@ -597,13 +608,13 @@ export ANTHROPIC_API_KEY=...        # read from the environment, never hardcoded
 python3 compendium/code/mini_harness.py --real --fresh
 ```
 
-The same harness now calls `claude-sonnet-5-5`, and the model decides every step from the messages, so expect a different trace: it may get the string right first time and finish in one iteration. Real responses carry `thinking` blocks, which the loop sends back unchanged and `compact()` strips from kept turns. At Sonnet 5.5's $2 / $10 per million input and output tokens (Oct 2026), a handful of calls with prompts of a few thousand tokens costs cents. The request shape follows the current API reference, but the `--real` run was exercised against a local mock of the Messages API, not the live service **(⚠ verify)**.
+The same harness now calls `claude-sonnet-5-5`, and the model decides every step from the messages, so expect a different trace: it may get the string right first time and finish in one iteration. Real responses carry `thinking` blocks, which the loop sends back unchanged and `compact()` strips from kept turns. At Sonnet 5.5's $2 / $10 per million input and output tokens (Oct 2026), a handful of calls with prompts of a few thousand tokens costs cents. The request matches the current API reference (endpoint, headers, body, tool definitions and `tool_result` shape, checked Oct 2026). But the `--real` path has only been run against a local mock of the Messages API, not the live service **(⚠ verify)**.
 
 ### What this toy leaves out
 
 Roughly in the order you would miss them, a production harness adds:
 
-- **Real sandboxing.** `run_python` is a child process with your permissions. A production harness confines filesystem and network together, at the OS, container, gVisor or microVM level, and keeps secrets outside ([§20](20-agent-runtime.md)).
+- **Real sandboxing.** The workspace jail and the command checks are not a sandbox. `run_python` is a child process with your permissions, running code the agent wrote. A production harness confines filesystem and network together, at the OS, container, gVisor or microVM level, and keeps secrets outside ([§20](20-agent-runtime.md), [§32](32-security-guardrails.md)).
 - **Prompt-injection defenses.** Any file the agent reads can carry instructions (P9). Least privilege and approval gates on consequential tools matter more than any prompt ([§32](32-security-guardrails.md)).
 - **Retries and idempotency.** One 429 or 5xx ends this program. Production code retries with backoff and gives side-effecting tools idempotency keys ([§30](30-cost-latency-reliability.md)).
 - **Prompt caching.** The prefix is already stable. Adding `cache_control` would make the repeated part cheap and fast ([§05](05-api-and-prompting.md), [§30](30-cost-latency-reliability.md)).
@@ -651,7 +662,7 @@ The loop would crash, or the API would reject the next request, because every `t
 
 **Q: What would happen if `compact()` kept the thinking blocks of the turns it keeps, on Claude Sonnet 5.5?**
 
-Each thinking block is bound to the system prompt, tools and messages that came before it (preserved thinking). Once the summary replaces the earlier turns, that prefix no longer matches, so the API rejects the request where the check is enforced. The fixes are to strip thinking from the kept turns, to use simple compaction with no turns kept, or to let the API compact on the server **(Preview)**. Without thinking blocks in the history, the problem doesn't arise.
+Each thinking block is bound to the system prompt, tools and messages that came before it (preserved thinking). Once the summary replaces the earlier turns, that prefix no longer matches, so the API rejects the request where the check is enforced. The fixes are to strip thinking from the kept turns, to send `"drop_block"` so the API drops the stale blocks, to use simple compaction with no turns kept, or to let the API compact on the server **(Preview)**. Without thinking blocks in the history, the problem doesn't arise.
 
 **Q: Why does the system prompt stay identical for the whole run, with the progress notes in the first user message instead?**
 
@@ -659,7 +670,7 @@ The prefix is resent on every call (P2), and prompt caching only pays off if it 
 
 **Q: The dangerous-command hook and `run_check`'s allow-list both stop `rm -rf`. Why keep both, and which one is the real control?**
 
-The allow-list is the control. It permits exactly `python3 <file>`, so anything unlisted fails, whatever it looks like (P9). The regex blocklist can't enumerate every destructive command (`find -delete`, a Python one-liner), but it catches common ones early, with a clearer message that helps the model recover. Neither is containment. In production, a sandbox bounds the damage when both are wrong ([§20](20-agent-runtime.md)).
+The allow-list is the stronger check. It permits exactly `python3 <file>`, so anything unlisted fails, whatever it looks like (P9). The regex blocklist can't enumerate every destructive command (`find -delete`, a Python one-liner), but it catches common ones early, with a clearer message that helps the model recover. Neither is the real control, because neither is containment: the agent wrote the file that `python3 <file>` runs, so that file can do anything your user can. In production, an OS-level sandbox bounds the damage ([§20](20-agent-runtime.md), [§32](32-security-guardrails.md)).
 
 **Q: Why does iteration 2 start from an empty context instead of continuing iteration 1's conversation?**
 
@@ -689,6 +700,8 @@ Compendium sections behind each layer: [§05](05-api-and-prompting.md) (1, 2), [
 - Anthropic docs, Handle tool calls (`is_error`, result ordering): https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls
 - Anthropic docs, Preserved thinking (client-side compaction rules): https://platform.claude.com/docs/en/build-with-claude/preserved-thinking
 - Anthropic docs, Compaction: https://platform.claude.com/docs/en/build-with-claude/compaction
+- Anthropic docs, Threshold compaction (default trigger 150,000 input tokens): https://platform.claude.com/docs/en/build-with-claude/compaction-threshold
+- Anthropic docs, Stop reasons (`max_tokens` with an incomplete `tool_use`, `refusal`, `pause_turn`): https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons
 - Anthropic, "Building effective agents" (Dec 19, 2024): https://www.anthropic.com/engineering/building-effective-agents
 - Anthropic, "Effective context engineering for AI agents" (Sep 29, 2025): https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
 - Anthropic, "Equipping agents for the real world with Agent Skills" (Oct 16, 2025): https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills

@@ -17,7 +17,7 @@ Task = namedtuple("Task", "prompt file expected")
 TASK = Task("Create greet.py in the workspace that prints exactly: hello, harness\n"
             "Check: `python3 greet.py` must exit 0 and print that line.",
             "greet.py", "hello, harness")
-SYSTEM = """You are a coding agent working in a sandboxed workspace directory.
+SYSTEM = """You are a coding agent working in a workspace directory.
 - Use only the tools provided. Paths are relative to the workspace root.
 - After you write a .py file, the harness runs the task's check and appends the verdict.
 - Your context is wiped between iterations. Keep progress notes with save_note.
@@ -156,7 +156,7 @@ class ToolRegistry:
             return self.result(call, f"{type(e).__name__}: {e}", True)
 
 def run_python(ws: Workspace, rel: str, timeout=10):
-    """Run one workspace file in a child process with a timeout. Not a sandbox (§20)."""
+    """Run one workspace file in a child process with a timeout. Not a sandbox (§20, §32)."""
     try:
         r = subprocess.run([sys.executable, "-I", str(ws.resolve(rel))], cwd=ws.root,
                            capture_output=True, text=True, timeout=timeout)
@@ -318,10 +318,11 @@ class Compactor:
                     lines.append(f"  -> {status}: {str(b['content']).replace(chr(10), ' ')[:160]}")
         summary = ("<summary>Earlier turns were compacted; re-read files or reload skills if you "
                    "need their full text.\n" + "\n".join(lines) + "\n</summary>")
-        # Preserved thinking: on Claude 5.5-family models a thinking block is valid only with
-        # the exact history that produced it. Once a summary replaces that history, replaying
-        # the kept turns' thinking blocks is rejected, so strip them (text and tool_use stay).
-        # Compact only between tool rounds: here every tool_use already has its tool_result.
+        # Preserved thinking: on Claude 5.5-family models (and Fable 5.1) a thinking block is
+        # valid only with the exact history that produced it. Once a summary replaces that
+        # history, replaying the kept turns' thinking can get a 400, so strip it (text and
+        # tool_use stay). Every kept tool_use keeps its tool_result, but the open tool round
+        # loses its reasoning: the docs prefer server-side compaction or a no-tail summary.
         thinking = ("thinking", "redacted_thinking")
         tail = [{"role": m["role"],
                  "content": [b for b in m["content"] if b["type"] not in thinking]}
