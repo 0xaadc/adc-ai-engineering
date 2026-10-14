@@ -30,14 +30,14 @@ A **principal** is anything that can be authenticated and granted permissions: a
 
 ```text
   delegated access token (JWT claims)        autonomous access token
-  ┌───────────────────────────────────────┐  ┌───────────────────────────────────┐
+  ┌────────────────────────────────────────┐  ┌───────────────────────────────────┐
   │ sub:       alice@corp.example   ◄ user │  │ sub:       agent:nightly-triage   │
   │ client_id: agent:invoice-bot   ◄ agent │  │ client_id: agent:nightly-triage   │
   │ aud:       https://billing.example.com │  │ aud:       https://jira.example   │
   │ scope:     invoices:read               │  │ scope:     issues:comment         │
   │ exp:       now + 5 min                 │  │ exp:       now + 5 min            │
-  └───────────────────────────────────────┘  └───────────────────────────────────┘
-  effective rights = alice's rights ∩ scope    effective rights = scope
+  └────────────────────────────────────────┘  └───────────────────────────────────┘
+  effective rights = alice's rights ∩ scope     effective rights = scope
 ```
 
 ### 2. OAuth 2.1, briefly

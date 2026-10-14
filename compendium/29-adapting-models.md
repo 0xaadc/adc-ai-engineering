@@ -36,11 +36,11 @@ Rungs 1–3 are earlier sections ([§05](05-api-and-prompting.md), [§09](09-rag
 
 **DSPy** (Khattab et al., Oct 2023; "programming, not prompting") gives the search a structure:
 
-- A **signature** declares a step's inputs and outputs, such as `"question, context -> answer"`, in place of a hand-written prompt.
-- A **module** turns a signature into model calls. `dspy.Predict` answers directly, `dspy.ChainOfThought` reasons first, and `dspy.ReAct` runs a tool loop. Modules compose into programs.
-- An **optimizer** (formerly "teleprompter") rewrites a program's prompts to maximize a metric on a training set. `BootstrapFewShot` runs the program and keeps traces that pass the metric as few-shot demonstrations. `MIPROv2` proposes instructions grounded in your data and code, then runs a Bayesian search over instruction and demonstration combinations. `BootstrapFinetune` distills the program into weights; combining prompt and weight optimization beat either alone in the authors' "BetterTogether" experiments (Jul 2024).
+- A **signature** declares a step's inputs and outputs, such as `"question, context -> answer"`, instead of a hand-written prompt.
+- A **module** turns a signature into model calls: `dspy.Predict` answers directly, `dspy.ChainOfThought` reasons first, `dspy.ReAct` runs a tool loop. Modules compose into programs.
+- An **optimizer** (formerly "teleprompter") rewrites the program's prompts to maximize a metric. `BootstrapFewShot` keeps traces that pass the metric as few-shot demonstrations. `MIPROv2` proposes data-grounded instructions and runs a Bayesian search over instruction and demonstration combinations. `BootstrapFinetune` distills the program into weights.
 
-**GEPA** (Agrawal et al., "Reflective Prompt Evolution Can Outperform Reinforcement Learning", Jul 25, 2025, revised Feb 2026; shipped as `dspy.GEPA`) replaces blind search with reflection. It collects whole trajectories (reasoning, tool calls, tool outputs) and has a model read them to diagnose failures and propose prompt edits. It keeps a **Pareto frontier**, meaning every candidate that is best on at least one example survives, so complementary strategies can be merged later instead of lost to a greedy pick. The argument is about information: a written diagnosis carries far more signal than the single scalar reward an RL update sees. The current revision reports beating GRPO (the RL algorithm in [§04](04-reasoning-models.md)) by 6% on average and up to 20% with up to 35× fewer rollouts, and beating MIPROv2 by over 10%. Those are the authors' benchmarks; check on yours.
+**GEPA** (Agrawal et al., "Reflective Prompt Evolution Can Outperform Reinforcement Learning", Jul 25, 2025, revised Feb 2026; shipped as `dspy.GEPA`) replaces blind search with reflection. A model reads whole trajectories (reasoning, tool calls, tool outputs), diagnoses failures and proposes prompt edits. GEPA keeps a **Pareto frontier**: every candidate that is best on at least one example survives, so complementary strategies can be merged instead of lost to a greedy pick. The bet is that a written diagnosis carries far more signal than the single scalar reward an RL update sees. The current revision reports beating GRPO (the RL algorithm in [§04](04-reasoning-models.md)) by 6% on average and up to 20% with up to 35× fewer rollouts, and beating MIPROv2 by over 10%. Those are the authors' benchmarks; check on yours.
 
 The stub below is the core loop: score the prompt on a dev set, show a model the failures, keep any variant that beats the best so far, and report a held-out test score. It is greedy where GEPA keeps a frontier.
 
@@ -155,7 +155,7 @@ Use preference pairs ([§28](28-data-flywheels.md)) when annotators can say whic
 
 ### Rung 7: reinforcement fine-tuning with graders
 
-*Reinforcement fine-tuning (RFT)* applies the reasoning-model recipe of RL with verifiable rewards ([§04](04-reasoning-models.md)) to your task. You supply prompts and a *grader*, a function that scores any response: a string check, a text-similarity score, Python code, a model-scored rubric, or a combination. OpenAI's docs describe the loop: the platform "samples several responses per prompt, scores them with the grader, and applies policy-gradient updates based on those rewards."
+*Reinforcement fine-tuning (RFT)* applies the reasoning-model recipe, RL with verifiable rewards ([§04](04-reasoning-models.md)), to your task. You supply prompts and a *grader* that scores any response: a string check, text similarity, Python code, a model-scored rubric, or a combination. In OpenAI's words, the platform "samples several responses per prompt, scores them with the grader, and applies policy-gradient updates based on those rewards."
 
 RL can only reinforce what the model already does sometimes, so the preconditions in OpenAI's RFT guide follow from the mechanism:
 
@@ -164,7 +164,7 @@ RL can only reinforce what the model already does sometimes, so the precondition
 - **Scores must vary across samples**, or there is nothing to compare.
 - **The task must be guess-proof**, or lucky guesses get reinforced along with bad reasoning.
 
-Availability as of Oct 2026: OpenAI's RFT supported only `o4-mini`, which its deprecation schedule removes, fine-tunes included, on Oct 23, 2026. Its self-serve fine-tuning platform stopped taking new organizations on May 7, 2026 and closes to new jobs on Jan 6, 2027. Amazon Bedrock offers RFT for Nova 2 Lite and some open-weight models (gpt-oss-20B, Qwen3 32B). For open-weight models there are open-source stacks such as Prime Intellect's `verifiers` and `prime-rl`, and Thinking Machines' LoRA-based Tinker API (launched Oct 1, 2025).
+Availability, Oct 2026: OpenAI's RFT supported only `o4-mini`, which its deprecation schedule removes, fine-tunes included, on Oct 23, 2026; its self-serve fine-tuning platform stopped taking new organizations on May 7, 2026 and closes to new jobs on Jan 6, 2027. Amazon Bedrock offers RFT on Nova 2 Lite and some open-weight models (gpt-oss-20B, Qwen3 32B). For open-weight models there are open-source stacks such as Prime Intellect's `verifiers` and `prime-rl`, and Thinking Machines' LoRA-based Tinker API (Oct 1, 2025).
 
 ### Rung 8: distillation
 
@@ -212,7 +212,7 @@ The weak point is the verifier: if it can be fooled, RL finds the way. Anthropic
 
 ### Cost math: when it pays off
 
-Take a ticket classifier at 2,000,000 requests a month. Each request has a 4,000-token prompt (3,500 fixed tokens of instructions and examples, 500 tokens of ticket) and 300 output tokens. Anthropic list prices as of Oct 2026 per million tokens: Sonnet 5.5 costs $2 input, $10 output and $0.10 for cache hits; Haiku 5.5 costs $0.10 input and $0.50 output.
+A ticket classifier handles 2,000,000 requests a month, each with a 4,000-token prompt (3,500 fixed tokens of instructions and examples plus 500 of ticket) and 300 output tokens. Anthropic list prices per million tokens, Oct 2026: Sonnet 5.5 $2 input, $10 output, $0.10 cache hits; Haiku 5.5 $0.10 input, $0.50 output.
 
 | Option | Per request | Per month |
 |---|---|---|
@@ -249,27 +249,16 @@ Every rung is a hypothesis, and the eval decides ([§26](26-evals.md)). Before: 
 | RFT | Weights | Prompts + a reliable grader | Days to weeks | Same | Checkable task the model sometimes solves |
 | Distillation | A smaller model's weights | Teacher outputs on real inputs | Days + hosting | Fall back to the teacher | Cost or latency at high volume |
 
-**Full fine-tuning vs LoRA vs QLoRA**
-
-| | Full | LoRA | QLoRA |
-|---|---|---|---|
-| Training memory, 8B model (rough) | ~128 GB | ~17 GB | ~5 GB |
-| Artifact | Full model copy | Megabyte-scale adapter | Same as LoRA |
-| Quality | Highest ceiling on large datasets | Matches full at typical sizes if all layers are adapted | Close to LoRA |
-| Forgetting | Most | Less | Less |
-| Serving | One deployment per fine-tune | Many adapters on one base | Same as LoRA |
-
 **Decision table: symptom → technique**
 
 | Symptom | Try first | Then | Not this |
 |---|---|---|---|
 | Wrong, stale or missing facts | RAG or a lookup tool | Better retrieval | Fine-tuning (P5) |
-| Output doesn't parse | Structured outputs ([§06](06-structured-outputs.md)) | — | Fine-tuning for format |
-| Ignores some instructions some of the time | Clearer prompt, examples, context hygiene ([§16](16-context-engineering.md)) | Prompt optimization, then SFT | A longer prompt |
-| Inconsistent style or tone at scale | Few-shot | SFT, then DPO | — |
+| Ignores some instructions some of the time | Clearer prompt, context hygiene ([§16](16-context-engineering.md)) | Prompt optimization, then SFT | A longer prompt |
+| Inconsistent format, style or tone at scale | Structured outputs ([§06](06-structured-outputs.md)), few-shot | SFT, then DPO | — |
 | "Slightly off"; raters can rank but not write | Rubric in the prompt | DPO | SFT on one "right" answer |
 | Checkable task, model succeeds sometimes | Prompt optimization, more thinking ([§04](04-reasoning-models.md)) | RFT or an RL environment | RFT at a 0% success rate |
-| Multi-step pipeline, no labels for middle steps | DSPy or GEPA on the end-to-end metric | `BootstrapFinetune` | Hand-tuning each prompt |
+| Multi-step pipeline, no labels for middle steps | DSPy or GEPA on the end-to-end metric | `BootstrapFinetune` | Hand-tuning each step |
 | Too slow or costly for a narrow task | Caching, a smaller stock model, lower effort ([§30](30-cost-latency-reliability.md)) | Distillation | Fine-tuning the big model |
 | Experts disagree on the right answer | Fix the task definition and rubric | — | Any training |
 | A new base model shipped | Re-run evals on the stock new model | Retrain only if it still loses | Assuming the fine-tune still wins (P12) |
@@ -306,20 +295,19 @@ Catastrophic forgetting. Gradient updates for the new task overwrote shared weig
 
 ## Takeaways
 
-- Climb the ladder cheapest first: prompt, few-shot, RAG and tools, prompt optimization, and only then the weights.
-- Prompt optimization (DSPy, GEPA) is training with text as the parameter. It needs a trusted metric and a held-out test.
-- LoRA trains a low-rank update of r × (d_in + d_out) per matrix. Applied to all layers, it matches full fine-tuning at typical sizes and forgets less.
-- Use DPO for "better vs worse," RFT for checkable tasks the model sometimes solves, and distillation for cost and latency.
-- RL environments are evals wired into the weights, and the verifier is what gets attacked.
+- Climb the ladder cheapest first: prompt, few-shot, RAG and tools, prompt optimization, then weights.
+- Prompt optimization (DSPy, GEPA) is training with text as the parameter; it needs a trusted metric and a held-out test.
+- LoRA trains a low-rank update, r × (d_in + d_out) per matrix; on all layers it matches full fine-tuning at typical sizes and forgets less.
+- DPO for "better vs worse," RFT for checkable tasks the model sometimes solves, distillation for cost and latency.
+- RL environments are evals wired into the weights; the verifier is what gets attacked.
 - Fine-tuning won't reliably add facts or fix a bad task definition, and it can erode safety and general skills.
-- A fine-tune's value ends when its base model is retired or beaten (P12). Compare against the best cheap alternative, and keep your data and evals in your own hands.
+- A fine-tune's value ends when its base model is retired or beaten (P12): compare against the best cheap alternative, and own your data and evals.
 
 ## Sources
 
 - Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines," Oct 2023: https://arxiv.org/abs/2310.03714
 - DSPy docs, Optimizers: https://dspy.ai/learn/optimization/optimizers/
 - Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs" (MIPRO), Jun 2024: https://arxiv.org/abs/2406.11695
-- Soylu et al., "Fine-Tuning and Prompt Optimization: Two Great Steps that Work Better Together," Jul 2024: https://arxiv.org/abs/2407.10930
 - Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning," Jul 25, 2025 (rev. Feb 14, 2026): https://arxiv.org/abs/2507.19457
 - Hu et al., "LoRA: Low-Rank Adaptation of Large Language Models," Jun 2021: https://arxiv.org/abs/2106.09685
 - Dettmers et al., "QLoRA: Efficient Finetuning of Quantized LLMs," May 2023: https://arxiv.org/abs/2305.14314
