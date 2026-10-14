@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-Anthropic open-sourced the **Model Context Protocol (MCP)** on November 25, 2024. Through 2025 the major hosts adopted it. By December 2025, Anthropic counted more than 10,000 active public MCP servers, with ChatGPT, Cursor, Gemini, Microsoft Copilot and VS Code among the adopters (a vendor claim). On December 9, 2025, Anthropic donated MCP to the new **Agentic AI Foundation (AAIF)**, a directed fund under the Linux Foundation, and on July 28, 2026 the largest revision of the spec shipped. Google launched **Agent2Agent (A2A)** on April 9, 2025. It became a Linux Foundation project in June 2025 and an AAIF project in August 2026. [§14](14-graph-engineering.md) left a problem: a graph structures your control flow, but every node that touches a tool or another team's agent is still custom glue code.
+Anthropic open-sourced the **Model Context Protocol (MCP)** on November 25, 2024, and through 2025 the major hosts adopted it. By December 2025, Anthropic counted more than 10,000 active public MCP servers, with ChatGPT, Cursor, Gemini, Microsoft Copilot and VS Code among the adopters (a vendor claim). On December 9, 2025, Anthropic donated MCP to the new **Agentic AI Foundation (AAIF)**, a directed fund under the Linux Foundation, and on July 28, 2026 the largest revision of the spec shipped. Google launched **Agent2Agent (A2A)** on April 9, 2025, and it became a Linux Foundation project in June 2025 and an AAIF project in August 2026. [§14](14-graph-engineering.md) left a problem: a graph structures your control flow, but every node that touches a tool or another team's agent is still custom glue code.
 
 ## Why this exists
 
