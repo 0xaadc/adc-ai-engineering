@@ -36,7 +36,7 @@ On the Claude API and Google Cloud, computer use is the **`computer_toolset_2026
 - **Coordinates are screenshot pixels.** The API doesn't downscale toolset images, so you resize screenshots to fit the image limits and scale returned coordinates back up.
 - **Versions.** The earlier `computer_20251124` (beta header `computer-use-2025-11-24`) still serves older models and Amazon Bedrock. Claude 5.5 models on the Claude API reject it with a 400.
 
-OpenAI's Responses API `computer` tool (with GPT-5.4, Mar 5, 2026, after the Mar 2025 `computer-use-preview`) returns a `computer_call` with an ordered `actions` array. You answer it with a `computer_call_output` screenshot. For its newest model, OpenAI's guide now recommends a code-execution tool instead, where the model writes PyAutoGUI or Playwright scripts that perform many actions per call. That is code-as-action from [§10](10-tool-use.md). On Sep 29, 2026, OpenAI also added computer use to its hosted Agents API, running in an OpenAI-hosted browser. Operator, OpenAI's Jan 2025 consumer agent, was folded into ChatGPT agent in Jul 2025 **(⚠ verify)**.
+OpenAI's Responses API `computer` tool (with GPT-5.4, Mar 5, 2026, after the Mar 2025 `computer-use-preview`) returns a `computer_call` with an ordered `actions` array. You answer it with a `computer_call_output` screenshot. For GPT-6 Astra, its most capable model, OpenAI's guide now recommends a code-execution tool instead, where the model writes PyAutoGUI or Playwright scripts that perform many actions per call. That is code-as-action from [§10](10-tool-use.md). On Sep 29, 2026, OpenAI also added computer use to its hosted Agents API, running in an OpenAI-hosted browser. Operator, OpenAI's Jan 2025 consumer agent, was folded into ChatGPT agent on Jul 17, 2025.
 
 ### A stub screenshot-act loop
 
@@ -91,7 +91,7 @@ The approval runs before *each block*, because one batch can fill, submit and co
 
 Every observation is an image, and every image stays in context. Under Anthropic's 28×28-pixel patch rule ([§07](07-multimodal.md)), a 1280×720 screenshot costs ⌈1280/28⌉ × ⌈720/28⌉ = 46 × 26 = 1,196 visual tokens, and a 1080p one costs 2,691. Declaring the toolset adds about 4,500 tokens to every request.
 
-The model is stateless (P2), so step *k* resends all *k* earlier screenshots. As an illustration, take a 50-step run that keeps every 1,200-token screenshot. It sends Σ(4,500 + 1,200·k) ≈ 1.76 million input tokens. On Claude Sonnet 5.5 that costs about $3.50 uncached at $2 per million, and roughly $0.50 when most of it is cache hits at $0.20. An API call returning 200 tokens of JSON is a rounding error by comparison.
+The model is stateless (P2), so step *k* resends all *k* earlier screenshots. As an illustration, take a 50-step run that keeps every 1,200-token screenshot. It sends Σ(4,500 + 1,200·k) ≈ 1.76 million input tokens. On Claude Sonnet 5.5 that costs about $3.50 uncached at $2 per million, and roughly $0.35 when most of it is cache hits at $0.10 (cache writes included). An API call returning 200 tokens of JSON is a rounding error by comparison.
 
 Latency is worse. Each step is a model round trip plus the action plus a render wait, so a click a person makes in under a second takes the agent seconds. Anthropic's limitations list advises: focus "on use cases where speed isn't critical."
 
@@ -137,7 +137,7 @@ The tooling as of Oct 2026:
 - **Anthropic's `browser_toolset_20260801`** **(GA, Claude API and Google Cloud)** has 27 default members, plus `javascript_exec`, `file_upload` and two diagnostics members that stay off until enabled. `read_page` returns the accessibility tree with references such as `[ref_2]`, and a click target is either `{"type": "ref", ...}` or a viewport coordinate. Your executor maps references to real nodes and refuses any URL scheme other than http(s).
 - **Playwright** is Microsoft's browser automation library. **Playwright MCP** drives it "through structured accessibility snapshots, bypassing the need for screenshots," though its README now steers coding agents to a leaner CLI with skills ([§18](18-skills.md)).
 - **browser-use** is an MIT-licensed library that drives Chromium over **CDP** (Chrome DevTools Protocol, the browser's remote-control interface), processes the HTML, and loops a model of your choice.
-- **Agentic browsers** put the agent inside your everyday browser, logged-in sessions included. Examples are Perplexity's Comet **(⚠ verify)**, Claude in Chrome (piloted Aug 2025, beta for all Max subscribers from Nov 24, 2025), and Gemini in Chrome's auto browse **(Preview, ⚠ verify)**. The category is volatile: OpenAI's ChatGPT Atlas launched in Oct 2025 and stopped working on Aug 9, 2026, with its features moved into the ChatGPT app **(⚠ verify)**. An agentic browser is the worst case for P9, combining your real cookies, untrusted pages and the power to act. That is the lethal trifecta.
+- **Agentic browsers** put the agent inside your everyday browser, logged-in sessions included. Examples are Perplexity's Comet, Claude in Chrome (piloted Aug 2025; beta for Max subscribers from Nov 24, 2025 and for Pro, Team and Enterprise from Dec 18, 2025), and Gemini in Chrome's auto browse, which Google calls experimental and offers to US AI Pro and Ultra subscribers **(Preview)**. The category is volatile: OpenAI's ChatGPT Atlas launched in Oct 2025 and stopped working on Aug 9, 2026, as OpenAI moved its browser-based agentic features into ChatGPT and Codex. An agentic browser is the worst case for P9, combining your real cookies, untrusted pages and the power to act. That is the lethal trifecta.
 
 ### Deep-research agents
 
@@ -284,7 +284,8 @@ The agent would combine private data (your sessions and files), untrusted conten
 - Anthropic, Computer use tool docs (`computer_toolset_20260801`): https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool
 - Anthropic, Browser use tool docs (`browser_toolset_20260801`): https://platform.claude.com/docs/en/agents-and-tools/tool-use/browser-use-tool
 - Anthropic, computer-use reference implementation: https://github.com/anthropics/anthropic-quickstarts/tree/main/computer-use-demo
-- Anthropic, "Piloting Claude for Chrome" (Aug 2025; updated Nov 24, 2025): https://www.anthropic.com/news/claude-for-chrome
+- Anthropic, "Piloting Claude for Chrome" (Aug 2025; updated Nov 24 and Dec 18, 2025): https://www.anthropic.com/news/claude-for-chrome
+- Anthropic, Pricing (Sonnet 5.5 cache reads $0.10/MTok): https://platform.claude.com/docs/en/about-claude/pricing
 - Anthropic, "Claude takes research to new places" (Apr 15, 2025): https://www.anthropic.com/news/research
 - Anthropic, "How we built our multi-agent research system" (Jun 13, 2025): https://www.anthropic.com/engineering/multi-agent-research-system
 - Anthropic, Web search tool docs (citations): https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool
@@ -301,5 +302,9 @@ The agent would combine private data (your sessions and files), untrusted conten
 - Yang et al., "Set-of-Mark Prompting" (Oct 2023): https://arxiv.org/abs/2310.11441
 - Microsoft, Playwright MCP README: https://github.com/microsoft/playwright-mcp
 - browser-use repository: https://github.com/browser-use/browser-use
+- OpenAI, "Introducing ChatGPT agent" (Jul 17, 2025; Operator folded in): https://openai.com/index/introducing-chatgpt-agent/
 - Wikipedia, "OpenAI Operator" (secondary): https://en.wikipedia.org/wiki/OpenAI_Operator
-- OpenAI Help Center, "Evolving Atlas into ChatGPT for browser-based agentic work" (not fetchable; ⚠ verify): https://help.openai.com/en/articles/20001371-evolving-atlas-into-chatgpt-for-browser-based-agentic-work
+- OpenAI Help Center, ChatGPT release notes ("Retiring Atlas": stop date Aug 9, 2026): https://help.openai.com/en/articles/6825453-chatgpt-release-notes
+- OpenAI Help Center, "ChatGPT Atlas retirement": https://help.openai.com/en/articles/20001371-evolving-atlas-into-chatgpt-for-browser-based-agentic-work
+- Perplexity, "Introducing Comet": https://www.perplexity.ai/hub/blog/introducing-comet
+- Google, Gemini in Chrome help, "Ask Gemini in Chrome to complete tasks for you with auto browse": https://support.google.com/gemini/answer/16821166

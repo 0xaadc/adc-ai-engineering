@@ -220,7 +220,7 @@ Then add the real world: speakerphones, cars, crosstalk, hold music, packet loss
 
 - **Voice cloning.** Generating speech "based on a short input clip" enables fraud through impersonation (GPT-4o system card). OpenAI's mitigation is to allow only preset voices, with a streaming output classifier that blocks audio not matching the chosen voice. It also observed "rare instances" of a model unintentionally imitating the *user's* voice.
 - **Authentication.** Don't use a voice match, or caller ID, as an authentication factor. Both can be faked. OpenAI says to treat SIP headers as "untrusted caller metadata, not authorization." Verify identity out of band.
-- **Disclosure.** Tell callers they are talking to an AI. The EU AI Act's Article 50(1) requires systems that interact with people to inform them, from Aug 2, 2026 ([§34](34-governance-regulation.md)). In the US, the FCC ruled in Feb 2024 that AI-generated voices count as "artificial" under robocall law, which brings consent requirements for such calls **(⚠ verify)**. Recording-consent rules vary by jurisdiction.
+- **Disclosure.** Tell callers they are talking to an AI. The EU AI Act's Article 50(1) requires systems that interact with people to inform them, from Aug 2, 2026 ([§34](34-governance-regulation.md)). In the US, the FCC ruled in Feb 2024 that AI-generated voices count as "artificial" under robocall law, which brings consent requirements for such calls. Recording-consent rules vary by jurisdiction.
 - **Injection by voice.** Anything a caller says is untrusted input (P9). Scope tools to the verified caller, and put read-back confirmation on consequential actions ([§32](32-security-guardrails.md)).
 
 ## Comparison
@@ -306,4 +306,5 @@ A few seconds of audio can clone a voice, and caller ID and SIP headers can be s
 - Pipecat (open-source voice agent framework): https://github.com/pipecat-ai/pipecat
 - Anthropic, Streaming Messages: https://platform.claude.com/docs/en/build-with-claude/streaming
 - EU AI Act, Article 50 (transparency obligations): https://artificialintelligenceact.eu/article/50/
-- FCC, "FCC Makes AI-Generated Voices in Robocalls Illegal" (Feb 2024; page blocked to fetch, ⚠ verify): https://www.fcc.gov/document/fcc-makes-ai-generated-voices-robocalls-illegal
+- FCC, Declaratory Ruling FCC 24-17 on AI-generated voices under the TCPA (adopted Feb 2, released Feb 8, 2024): https://docs.fcc.gov/public/attachments/FCC-24-17A1.pdf
+- FCC, "FCC Makes AI-Generated Voices in Robocalls Illegal" (news release, Feb 8, 2024): https://docs.fcc.gov/public/attachments/DOC-400393A1.pdf
