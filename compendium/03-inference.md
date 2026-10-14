@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-[§02](02-how-llms-work.md) ended with the catch: every generated token takes a full pass through the model, one after another. Serving that cheaply became its own discipline once ChatGPT made LLMs a mass product: continuous batching (Orca, 2022), PagedAttention and vLLM (2023), speculative decoding (2022–23), and prompt caching as a priced API feature (2024). This section covers what happens on the server between your request and the last token, at the depth an application engineer needs to predict cost and latency (P10). Running your own models is covered in [§31](31-open-weights-self-hosting.md).
+[§02](02-how-llms-work.md) ended with the catch: every generated token takes a full pass through the model, one after another. Serving that cheaply became its own discipline as LLMs became a mass product: continuous batching (Orca, 2022), PagedAttention and vLLM (2023), speculative decoding (2022–23), and prompt caching as a priced API feature (2024). This section covers what happens on the server between your request and the last token, at the depth an application engineer needs to predict cost and latency (P10). Running your own models is covered in [§31](31-open-weights-self-hosting.md).
 
 ## Why this exists
 
@@ -32,7 +32,7 @@ A back-of-envelope estimate makes the gap concrete. It uses NVIDIA's H100 SXM fi
 - **Decode:** streaming 140 GB at 6.7 TB/s takes about 21 ms per step, so one sequence tops out near 48 tokens/s, however fast the math units are.
 - **Prefill of 2,000 tokens:** about 2 × 70B × 2,000 = 2.8 × 10¹⁴ operations, about 0.14 s at full utilization.
 
-These are idealized lower bounds that ignore attention, communication and imperfect utilization, but the shape is right: per token, decode is orders of magnitude more expensive than prefill.
+These are idealized bounds that ignore attention, communication and imperfect utilization, but the shape is right: for a single sequence, an output token takes roughly 300× the GPU time of a prompt token (21 ms vs about 0.07 ms).
 
 The fix for decode is **batching**. One pass over the weights can advance 64 sequences instead of one, at nearly the same cost per pass, until the batch becomes compute-bound or runs out of memory. Almost every other technique below exists to make bigger, fuller batches possible.
 
@@ -141,7 +141,7 @@ Decode leaves math units idle, and **speculative decoding** puts them to work:
 
 The output distribution is mathematically the same as the large model's alone. Leviathan et al. (2022) report 2–3× faster decoding on T5-XXL with identical outputs. Chen et al. (DeepMind, 2023) report 2–2.5× on the 70B Chinchilla. The speedup depends on the acceptance rate: predictable text such as boilerplate, code edits and quoted input accepts more guesses. Under heavy load, when batches are already compute-bound, the gain shrinks.
 
-A related product dial: Anthropic's **fast mode (Preview, research preview as of Oct 2026)** runs Claude Opus 5.5 at up to 2.5× higher output tokens per second for $8/$40 per MTok versus the standard $4/$20. Anthropic describes it as the same model with a faster inference configuration and doesn't say which techniques it uses.
+A related product dial: Anthropic's fast mode **(Preview)**, a research preview as of Oct 2026, runs Claude Opus 5.5 at up to 2.5× higher output tokens per second for $8/$40 per MTok versus the standard $4/$20. Anthropic describes it as the same model with a faster inference configuration and doesn't say which techniques it uses.
 
 ### Why output tokens cost more than input tokens
 
@@ -261,7 +261,7 @@ Read the shape, not the exact numbers. The classifier pays for input, while the 
 | Quantization | Fewer bits per weight | Memory, bandwidth, GPUs | Possible quality loss; eval it | Provider / you if self-hosting |
 | Speculative decoding | Draft guesses, big model verifies | Decode latency | Extra compute; gains vary with text | Provider / your server |
 | Prompt caching | Reuse a prefix's KV cache | Prefill cost and TTFT | Write premium; strict prefix match | You (prompt layout) |
-| Batch API | Async, provider-scheduled | 50% of the price | Hours, not seconds | You |
+| Batch API | Async, provider-scheduled | 50% of the price | No immediate answer | You |
 
 ## What it didn't solve
 

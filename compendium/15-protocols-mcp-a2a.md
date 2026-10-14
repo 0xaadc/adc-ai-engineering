@@ -209,20 +209,25 @@ Each connected tool's name, description and schema are injected into *every* req
 
 ### A2A: agent to agent
 
-MCP connects an agent to a **tool**: a function that is called and returns. A2A connects an agent to another **agent**, which may be built by another vendor on another framework and is deliberately **opaque**. Peers don't share their internal prompts, plans or tools. The spec defines four parts:
+MCP connects an agent to a **tool**, a function that is called and returns. A2A connects an agent to another **agent**, possibly another vendor's on another framework, which stays deliberately **opaque**: peers don't share prompts, plans or tools. The spec has four parts:
 
-- **Agent Card.** A JSON document, conventionally at `https://{domain}/.well-known/agent-card.json`. It lists the agent's name and description, its `supportedInterfaces` (each a URL plus a protocol binding and version), its `capabilities` (`streaming`, `pushNotifications`), its `securitySchemes` (such as OAuth or OpenID Connect) and its **skills**, the advertised task types with examples. A card can be **signed** with a JWS signature over a canonicalized JSON form, so clients can verify who published it. It works like an OpenAPI document plus a service-registry entry.
-- **Tasks.** `SendMessage` returns either a direct `Message` or a `Task` with a lifecycle. The working states are `TASK_STATE_SUBMITTED` and `TASK_STATE_WORKING`. The interrupted states are `TASK_STATE_INPUT_REQUIRED` and `TASK_STATE_AUTH_REQUIRED`. The terminal states are `TASK_STATE_COMPLETED`, `TASK_STATE_FAILED`, `TASK_STATE_CANCELED` and `TASK_STATE_REJECTED`. Outputs arrive as **artifacts**, and a `contextId` groups related tasks into one conversation. If you have polled a Databricks job run's lifecycle state, the shape is familiar.
-- **Three ways to get updates.** Polling with `GetTask`, streaming over SSE with `SendStreamingMessage` or `SubscribeToTask`, and **push notifications**, where the server calls a webhook you registered. Push suits tasks that run for hours.
-- **Protocol bindings.** The same operations are defined over JSON-RPC 2.0, gRPC and HTTP+JSON/REST.
+- **Agent Card.** A JSON document, conventionally at `https://{domain}/.well-known/agent-card.json`. It lists `supportedInterfaces` (URL, protocol binding, version), `capabilities` (`streaming`, `pushNotifications`), `securitySchemes` (such as OAuth or OpenID Connect) and **skills**, the advertised task types with examples. Cards can be **signed** with JWS so clients can verify the publisher. Think of an OpenAPI document plus a service-registry entry.
+- **Tasks.** `SendMessage` returns a direct `Message` or a `Task` that moves through states:
+  - working: `TASK_STATE_SUBMITTED`, `TASK_STATE_WORKING`
+  - interrupted: `TASK_STATE_INPUT_REQUIRED`, `TASK_STATE_AUTH_REQUIRED`
+  - terminal: `TASK_STATE_COMPLETED`, `TASK_STATE_FAILED`, `TASK_STATE_CANCELED`, `TASK_STATE_REJECTED`
 
-The A2A spec states the division of labor itself. An A2A client agent delegates a task to an A2A server agent, which "might use MCP to interact with several underlying tools". In short, **MCP is agent↔tool (vertical) and A2A is agent↔agent (horizontal)**. Use A2A at organizational or vendor boundaries. Inside one codebase, the multi-agent patterns of [§13](13-multi-agent.md) need no wire protocol.
+  Outputs arrive as **artifacts**, and a `contextId` groups related tasks. If you have polled a Databricks job run's state, the shape is familiar.
+- **Updates.** Poll with `GetTask`, stream over SSE (`SendStreamingMessage`, `SubscribeToTask`), or register a webhook for **push notifications**, which suit tasks that run for hours.
+- **Protocol bindings.** The same operations run over JSON-RPC 2.0, gRPC and HTTP+JSON/REST.
+
+The A2A spec states the division of labor: a client agent delegates to a server agent, which "might use MCP to interact with several underlying tools". In short, **MCP is agent↔tool (vertical) and A2A is agent↔agent (horizontal)**. Use A2A at organizational or vendor boundaries. Inside one codebase, the patterns of [§13](13-multi-agent.md) need no wire protocol.
 
 ### Governance and status in 2026
 
-- **MCP** is an AAIF project. AAIF launched December 9, 2025, co-founded by Anthropic, Block and OpenAI, with MCP, goose and AGENTS.md as its founding projects. MCP's governance stayed with its maintainers and the SEP (Specification Enhancement Proposal) process. Standards-track SEPs now need a matching conformance test before they can reach Final, and official SDKs are scored in tiers. Current spec: 2026-07-28 **(GA)**.
-- **A2A** spec v1.0.0 **(GA)**. It was accepted as an AAIF Growth Stage project (announced Aug 27, 2026). The A2A project says it is backed by over 150 organizations, with native support in Google Cloud, AWS Bedrock AgentCore Runtime and Azure AI Foundry. That is a project claim, and production cross-vendor use is less visible than MCP's.
-- AAIF also hosts agentgateway. A single neutral home for both protocols lowers the risk of a vendor fork.
+- **MCP** is an AAIF project. AAIF launched December 9, 2025, co-founded by Anthropic, Block and OpenAI, with MCP, goose and AGENTS.md as its founding projects. MCP's governance stayed with its maintainers and the SEP (Specification Enhancement Proposal) process, and standards-track SEPs now need a conformance test to reach Final. Current spec: 2026-07-28 **(GA)**.
+- **A2A** spec v1.0.0 **(GA)** was accepted as an AAIF Growth Stage project (announced Aug 27, 2026). The project claims backing from over 150 organizations and native support in Google Cloud, AWS Bedrock AgentCore Runtime and Azure AI Foundry. Production cross-vendor use is less visible than MCP's.
+- One neutral home for both protocols, alongside agentgateway, lowers the risk of a vendor fork.
 
 ## Comparison
 
@@ -255,7 +260,7 @@ Each host implements an MCP client once and each system implements an MCP server
 
 **Q: Why did the 2026-07-28 revision remove the initialize handshake and the session, and how does a server keep state now?**
 
-Sessions pinned each client to the server instance that issued its `Mcp-Session-Id`. That forced sticky routing and shared session stores, which made horizontal scaling and plain HTTP infrastructure awkward. Now every request carries its version and capabilities in `_meta`, so any instance can serve it, and mid-call questions use multi round-trip results whose `requestState` travels in the payload. A server that needs cross-call state mints an explicit handle that the model passes back as an argument. The cost is that state management moves into your tool design.
+Sessions pinned each client to the instance that issued its `Mcp-Session-Id`, which forced sticky routing and shared session stores and made horizontal scaling awkward. Now every request carries its version and capabilities in `_meta`, so any instance can serve it, and mid-call questions use multi round-trip results whose `requestState` travels in the payload. A server that needs cross-call state mints an explicit handle that the model passes back as an argument, so state management moves into tool design.
 
 **Q: What would happen if you connected 15 MCP servers exposing about 10 tools each to one agent?**
 
@@ -271,11 +276,11 @@ The attack lives in the tool's *description*, which the model reads as context (
 
 **Q: Why not just wrap a remote agent as an MCP tool instead of using A2A?**
 
-An MCP tool models a function call: a request with a schema and a result. A remote agent may run for hours, ask for more input or authentication mid-task, stream partial artifacts, and keep its internals opaque. A2A models exactly that with task states, push notifications and signed Agent Cards. Wrapping works for a quick, stateless sub-agent, and MCP's Tasks extension narrows the gap. For long-running delegation across organizations, A2A's lifecycle is the better fit.
+An MCP tool models a function call: a request with a schema and a result. A remote agent may run for hours, ask for input or authentication mid-task, stream partial artifacts and keep its internals opaque, which A2A models with task states, push notifications and signed Agent Cards. Wrapping works for a quick, stateless sub-agent, and MCP's Tasks extension narrows the gap. For long-running delegation across organizations, A2A fits better.
 
 **Q: What would happen if a stdio MCP server writes debug output with `print()`?**
 
-On stdio, stdout *is* the protocol channel, and every line is expected to be a JSON-RPC message. A stray print injects non-JSON bytes into the stream, so the client fails to parse responses or misattributes them, and the connection breaks in confusing ways. Send logs to stderr or OpenTelemetry instead, which is also the spec's replacement for the deprecated Logging feature. Streamable HTTP servers don't have this problem, because the HTTP body is separate from process output.
+On stdio, stdout *is* the protocol channel, and every line is expected to be a JSON-RPC message. A stray print injects non-JSON bytes, so the client fails to parse responses and the connection breaks in confusing ways. Log to stderr or OpenTelemetry, which is also the spec's replacement for deprecated Logging. Streamable HTTP servers don't have this problem, because the HTTP body is separate from process output.
 
 ## Takeaways
 
