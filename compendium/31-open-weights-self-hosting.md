@@ -8,13 +8,13 @@ The open-weight story starts with Meta's LLaMA (Feb 2023), released to researche
 
 ## Why this exists
 
-A hosted API gives you a function you can call but never hold. Your prompts and data go to a third party. You accept its prices, rate limits, regions and retirement schedule, and you can only fine-tune in the ways it offers. Open weights hand you the function itself (P1): a file of parameters that runs anywhere you have enough memory.
+A hosted API gives you a function you can call but never hold. Your prompts and data go to a third party. You accept its prices, rate limits, regions and retirement schedule, and you can fine-tune only if it offers that at all: as of Oct 2026 Anthropic's API has no self-serve fine-tuning and OpenAI is winding its own down ([§29](29-adapting-models.md)). Open weights hand you the function itself (P1): a file of parameters that runs anywhere you have enough memory.
 
 Reasons to self-host:
 - **Privacy and data residency.** Data never leaves your network, which may be the only option for some regulated, contractual or air-gapped workloads.
 - **Cost at scale.** Once a GPU is busy most of the time, a token costs what the hardware and power cost, with no margin on top.
 - **Control and latency.** You can pin an exact version forever, colocate the model with your data, set your own batch sizes and decoding, and you have no shared rate limit.
-- **Fine-tunes.** LoRA adapters and full fine-tunes ([§29](29-adapting-models.md)) can be served cheaply, often many adapters on one base model.
+- **Fine-tunes.** LoRA adapters and full fine-tunes ([§29](29-adapting-models.md)) can be served cheaply, often many adapters on one base model. With closed providers mostly not offering or closing hosted fine-tuning, open weights (self-hosted or on a specialized provider) are where most fine-tuning now happens.
 - **Offline and edge.** Laptops, factories, ships and phones.
 
 Reasons not to:
@@ -35,9 +35,9 @@ The license decides what you may do. Read the one on each checkpoint's model car
 
 | License type (examples, Oct 2026) | What it allows | Watch for |
 |---|---|---|
-| Apache 2.0 (Qwen 3.x, gpt-oss, Gemma 4, Mistral Small 4) | Commercial use, modification, redistribution | Attribution and notice files; patent terms |
-| MIT (DeepSeek V4) | Nearly anything | Attribution |
-| Custom licenses (Llama 4, Kimi, GLM, Mistral Medium) | Varies, from broad commercial use with conditions to narrower terms | Llama 4: a separate license from Meta above 700 million monthly active users, "Built with Llama" display, derivative names must start with "Llama", plus an acceptable-use policy |
+| Apache 2.0 (most Qwen 3.x checkpoints, gpt-oss, Gemma 4, Mistral Small 4) | Commercial use, modification, redistribution | Attribution and notice files; patent terms |
+| MIT (DeepSeek V4, GLM-5 to GLM-5.2, GLM-5.3-Flash) | Nearly anything | Attribution |
+| Custom licenses (Llama 4, Kimi, GLM-5.3, Mistral Medium 3.5, Qwen3.8-2.4T and Qwen3.8-Flash-Next) | Varies, from broad commercial use with conditions to narrower terms | Llama 4: a separate license from Meta above 700 million monthly active users, "Built with Llama" display, derivative names must start with "Llama", plus an acceptable-use policy |
 
 One consequence is easy to miss: the file you downloaded never changes underneath you. That is great for reproducibility, but it also means no safety fixes arrive unless you pull and re-evaluate a new release.
 
@@ -141,7 +141,7 @@ Architecture changes the KV term a lot. gpt-oss-120b's config has 36 layers with
 ### Hosted open-weight models: the middle path
 
 You can get open weights without running GPUs:
-- **Cloud platforms.** Amazon Bedrock added 18 fully managed open-weight models in Dec 2025 and more in Feb 2026. Google Cloud's Model Garden serves open models such as DeepSeek, GLM and Llama as managed APIs. Microsoft's Foundry catalog also lists open models **(⚠ verify)**.
+- **Cloud platforms.** Amazon Bedrock added 18 fully managed open-weight models in Dec 2025 and more in Feb 2026. Google Cloud's Model Garden serves open models such as DeepSeek, GLM and Llama as managed APIs. Microsoft Foundry's catalog also sells open-weight models such as gpt-oss, DeepSeek V4 and Qwen 3.x.
 - **Inference APIs** such as Together, Fireworks, Groq, Cerebras, Baseten, DeepInfra and Hugging Face Inference Providers, often reached through OpenRouter.
 - **Dedicated endpoints**, where a provider runs your chosen checkpoint (or fine-tune) on reserved GPUs, sit between serverless and self-hosting.
 
@@ -250,7 +250,7 @@ Public leaderboards measure someone else's tasks, sometimes with contaminated te
 | FP8 | 8 | Weights + activations | Effectively lossless | H100-class GPU serving |
 | INT8 (W8A8) | 8 | Weights + activations | 1–3% degradation | High-throughput batching |
 | GPTQ / AWQ (W4A16) | 4 | Weight-only | Competitive with 8-bit | Latency-bound or memory-tight serving |
-| GGUF `Q4_K_M`, `Q8_0`, ... | 2–8 | Weight-only, block-wise | Not covered by the study; eval it | llama.cpp, Ollama, local |
+| GGUF `Q4_K_M`, `Q8_0`, ... | 1.5–8 | Weight-only, block-wise | Not covered by the study; eval it | llama.cpp, Ollama, local |
 
 ## What it didn't solve
 
@@ -321,7 +321,9 @@ Every expert must sit in memory, but each token runs only about 5.1B active para
 - Lin et al., "AWQ" (2023): https://arxiv.org/abs/2306.00978
 - Kurtic et al., "'Give Me BF16 or Give Me Death'? Accuracy-Performance Trade-Offs in LLM Quantization" (2024): https://arxiv.org/abs/2411.02355
 - AWS, "Amazon Bedrock adds 18 fully managed open weight models" (Dec 2025): https://aws.amazon.com/about-aws/whats-new/2025/12/amazon-bedrock-fully-managed-open-weight-models/
+- AWS, "Amazon Bedrock adds support for six fully-managed open weights models" (Feb 10, 2026): https://aws.amazon.com/about-aws/whats-new/2026/02/amazon-bedrock-adds-support-six-open-weights-models/
 - Google Cloud, open models as managed APIs (Model Garden MaaS): https://cloud.google.com/vertex-ai/generative-ai/docs/maas/use-open-models
+- Microsoft, Foundry Models sold by Azure (gpt-oss, DeepSeek, Qwen and other open-weight models): https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure
 - Hugging Face, Inference Providers: https://huggingface.co/docs/inference-providers/index
 - OpenRouter, Provider selection (including quantization filters): https://openrouter.ai/docs/guides/routing/provider-selection
 - Anthropic, OpenAI SDK compatibility: https://platform.claude.com/docs/en/api/openai-sdk

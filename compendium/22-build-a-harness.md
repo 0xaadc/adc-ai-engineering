@@ -72,10 +72,10 @@ The task is tiny on purpose: create `greet.py` that prints exactly `hello, harne
 
 trace summary
   kind     spans replayed errors  tok in tok out       ms
-  model        7        0      0    4867     293      4.5
-  tool         6        0      1       0       0     63.5
+  model        7        0      0    4867     293      4.0
+  tool         6        0      1       0       0     59.4
   compact      1        0      0       0       0      0.1
-  goal         2        0      1       0       0     36.4
+  goal         2        0      1       0       0     39.2
 
 result: DONE after 2 iteration(s) | steps executed 18, replayed 0 | ~5,160 of 20,000 tokens
 workspace: /tmp/mini_harness/stub
@@ -375,7 +375,7 @@ class Compactor:
         return compacted
 ```
 
-Before each call, the harness estimates the prompt at about four characters per token (real counts come from `usage` or `count_tokens`). Past the threshold, `compact()` keeps the latest tool round verbatim and replaces everything before it with a summary: the task, each call made, and the start of each result, errors included, since observed failures are worth keeping ([§16](16-context-engineering.md)). Two simplifications keep the demo deterministic. The threshold is absurdly low, 850 estimated tokens, where real triggers sit in the tens or hundreds of thousands (the API's own threshold compaction defaults to 150K). And the summary is extractive, where production harnesses have the model write it with a prompt tuned for recall.
+Context is a finite budget that rots as it grows (P3), so before each call the harness estimates the prompt at about four characters per token (real counts come from `usage` or `count_tokens`). Past the threshold, `compact()` keeps the latest tool round verbatim and replaces everything before it with a summary: the task, each call made, and the start of each result, errors included, since observed failures are worth keeping ([§16](16-context-engineering.md)). Two simplifications keep the demo deterministic. The threshold is absurdly low, 850 estimated tokens, where real triggers sit in the tens or hundreds of thousands (the API's own threshold compaction **(Preview)** defaults to 150K). And the summary is extractive, where production harnesses have the model write it with a prompt tuned for recall.
 
 Two rules matter on current models. The first is **preserved thinking**: on Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1, each thinking block is bound to the exact system prompt, tools and messages before it. A summary you write yourself changes that prefix, so replaying the kept turns' thinking blocks fails the check and the request is rejected. Anthropic's docs give two client-side fixes. One is to strip `thinking` and `redacted_thinking` from the kept turns while keeping their `text` and `tool_use` blocks, which is what `compact()` does. The other, which they recommend, is "simple compaction": one summary message plus the next instruction, with nothing earlier replayed. The second rule: never compact mid tool round. `compact()` runs only at the top of a turn, when every `tool_use` has its `tool_result`.
 
@@ -502,7 +502,7 @@ result: DONE after 2 iteration(s) | steps executed 12, replayed 6 | ~5,160 of 20
 Three rules from [§20](20-agent-runtime.md) show up in the code:
 
 - **Step ids come from the code path** (`i1.t3`, `i1.t3.toolu_...`), never from a clock, so a replay finds them again.
-- **I/O between steps is itself a step.** Even the notes read at the start of an iteration is journaled, so a replay sees what the original run saw.
+- **I/O between steps is itself a step.** Even reading the notes at the start of an iteration is journaled, so a replay sees what the original run saw.
 - **Execution is at-least-once.** A crash between a side effect and its journal write reruns that step. Rewriting the same file is harmless, but a tool that charges a card would need an idempotency key.
 
 Compaction isn't journaled: it's a pure function of journaled results, so a replay recomputes the same answer. That's [§20](20-agent-runtime.md)'s Managed Agents idea at toy scale: the log is the source of truth, and the context window is a view of it. Sampling (P4) doesn't break replay, because each sample is recorded once.
@@ -597,7 +597,7 @@ export ANTHROPIC_API_KEY=...        # read from the environment, never hardcoded
 python3 compendium/code/mini_harness.py --real --fresh
 ```
 
-The same harness now calls `claude-sonnet-5-5`, and the model decides every step from the messages, so expect a different trace: it may get the string right first time and finish in one iteration. Real responses carry `thinking` blocks, which the loop sends back unchanged and `compact()` strips from kept turns. A handful of calls with prompts of about a thousand tokens costs cents. The request shape follows the current API reference, but the `--real` run was exercised against a local mock of the Messages API, not the live service **(⚠ verify)**.
+The same harness now calls `claude-sonnet-5-5`, and the model decides every step from the messages, so expect a different trace: it may get the string right first time and finish in one iteration. Real responses carry `thinking` blocks, which the loop sends back unchanged and `compact()` strips from kept turns. At Sonnet 5.5's $2 / $10 per million input and output tokens (Oct 2026), a handful of calls with prompts of a few thousand tokens costs cents. The request shape follows the current API reference, but the `--real` run was exercised against a local mock of the Messages API, not the live service **(⚠ verify)**.
 
 ### What this toy leaves out
 
@@ -617,13 +617,13 @@ Each is a function or a module in a real harness, not a different architecture.
 
 ## Comparison
 
-| | This toy (`mini_harness.py`) | Product harness (Claude Code, Codex) | Agent SDK (Claude Agent SDK, OpenAI Agents SDK) | Graph framework (LangGraph, ADK 2.0, MAF workflows) |
+| | This toy (`mini_harness.py`) | Product harness (Claude Code, Codex) | Agent SDK (Claude Agent SDK, OpenAI Agents SDK) | Graph framework (LangGraph, Google ADK 2.0, Microsoft Agent Framework workflows) |
 |---|---|---|---|---|
-| Who owns the loop | You, in about 30 lines | The vendor; you configure it | The library; you add tools and callbacks | You draw nodes and edges; the runtime walks them |
-| Tools | Five, hand-written | Built-in file, shell and search tools, plus MCP | Claude: Claude Code's built-in tools; OpenAI: your functions and handoffs | Any node: code, an LLM call, a tool or a whole agent |
+| Who owns the loop | You, in about 35 lines | The vendor; you configure it | The library; you add tools and callbacks | You draw nodes and edges; the runtime walks them |
+| Tools | Five, hand-written | Built-in file, shell and search tools, plus MCP | Claude: Claude Code's built-in tools; OpenAI: your functions, hosted tools, handoffs | Any node: code, an LLM call, a tool or a whole agent |
 | Guardrails | Pre- and post-tool hooks, an allow-list, an approval callback | Permission modes, allow/ask/deny rules, hooks, an OS sandbox for shell commands | Callback hooks (Claude), guardrails (OpenAI) | Interrupts before nodes; checks are nodes |
 | Context management | Extractive compaction that keeps the last tool round | Automatic compaction, subagents, skills, `CLAUDE.md` or `AGENTS.md` | Built in (Claude Agent SDK); sessions (OpenAI) | State fields you design per node |
-| Durability | A JSONL step journal, replayed on rerun | Sessions; cloud runs on vendor infrastructure | Sessions; durable engines through integrations, such as Temporal for OpenAI's SDK | Checkpointers per `thread_id`, with time travel |
+| Durability | A JSONL step journal, replayed on rerun | Resumable sessions; cloud runs on vendor infrastructure | Sessions; durable engines through integrations, such as Temporal for OpenAI's SDK | Checkpointers per `thread_id`, with time travel |
 | Outer loop | `drive()` plus a goal check | Claude Code's `/goal`, routines, `claude -p` in a script | You write it | A cycle in the graph |
 | Strength | Every line is visible | The best-tuned harness for its own models | A production loop without writing one | Explicit, testable control flow (P7) |
 | Weakness | Neither safe nor robust | Opaque, and tuned to its vendor's models | Less control over the internals | Open-ended tasks fight a fixed graph |
@@ -651,7 +651,7 @@ The loop would crash, or the API would reject the next request, because every `t
 
 **Q: What would happen if `compact()` kept the thinking blocks of the turns it keeps, on Claude Sonnet 5.5?**
 
-Each thinking block is bound to the system prompt, tools and messages that came before it (preserved thinking). Once the summary replaces the earlier turns, that prefix no longer matches, so the API rejects the request where the check is enforced. The fixes are to strip thinking from the kept turns, to use simple compaction with no turns kept, or to let the API compact on the server. Without thinking blocks in the history, the problem doesn't arise.
+Each thinking block is bound to the system prompt, tools and messages that came before it (preserved thinking). Once the summary replaces the earlier turns, that prefix no longer matches, so the API rejects the request where the check is enforced. The fixes are to strip thinking from the kept turns, to use simple compaction with no turns kept, or to let the API compact on the server **(Preview)**. Without thinking blocks in the history, the problem doesn't arise.
 
 **Q: Why does the system prompt stay identical for the whole run, with the progress notes in the first user message instead?**
 
@@ -698,12 +698,16 @@ Compendium sections behind each layer: [§05](05-api-and-prompting.md) (1, 2), [
 - LangChain, Vivek Trivedy, "The Anatomy of an Agent Harness" (Mar 10, 2026): https://blog.langchain.com/the-anatomy-of-an-agent-harness/
 - Birgitta Böckeler, "Harness engineering for coding agent users" (Apr 2, 2026): https://martinfowler.com/articles/harness-engineering.html
 - Claude Code docs, Hooks reference: https://code.claude.com/docs/en/hooks
+- Claude Code docs, Permissions and permission modes: https://code.claude.com/docs/en/permissions
+- Claude Agent SDK docs, Hooks: https://code.claude.com/docs/en/agent-sdk/hooks
+- OpenAI Agents SDK documentation: https://openai.github.io/openai-agents-python/
+- LangGraph docs, Persistence (checkpointers, time travel): https://docs.langchain.com/oss/python/langgraph/persistence
 - Anthropic, "Scaling Managed Agents: Decoupling the brain from the hands" (Apr 8, 2026): https://www.anthropic.com/engineering/managed-agents
 - Temporal docs, Activity Definition (results recorded only after an Activity returns): https://docs.temporal.io/activity-definition
 - Geoffrey Huntley, "Ralph Wiggum as a 'software engineer'" (Jul 14, 2025): https://ghuntley.com/ralph/
 - Geoffrey Huntley, "don't waste your back pressure" (Jan 17, 2026): https://ghuntley.com/pressure/
 - Addy Osmani, "Loop Engineering" (Jun 7, 2026): https://addyosmani.com/blog/loop-engineering/
 - Claude Code docs, "Keep Claude working toward a goal" (`/goal`): https://code.claude.com/docs/en/goal
-- OpenTelemetry, GenAI semantic conventions: https://opentelemetry.io/docs/specs/semconv/gen-ai/
+- OpenTelemetry, GenAI semantic conventions (moved from opentelemetry.io to their own repository, as of Oct 2026): https://github.com/open-telemetry/semantic-conventions-genai
 - Python docs, `subprocess.run` (timeouts): https://docs.python.org/3/library/subprocess.html
 - Python docs, `urllib.request`: https://docs.python.org/3/library/urllib.request.html
