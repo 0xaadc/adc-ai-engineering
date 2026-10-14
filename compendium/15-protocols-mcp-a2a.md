@@ -77,7 +77,7 @@ if __name__ == "__main__":
     mcp.run()                      # stdio by default; mcp.run(transport="streamable-http") to deploy
 ```
 
-The type hints *are* the schema: `table: str` becomes the `inputSchema`, and the docstring becomes the description the model reads. SDK v2 renamed `FastMCP` to `MCPServer`, and the old import path is gone. Below is the raw exchange with this server over stdio, captured by writing JSON-RPC lines to its stdin and lightly trimmed. Note what is missing: there is no handshake before the first call.
+The type hints *are* the schema: `table: str` becomes `inputSchema`, and the docstring becomes the description the model reads. SDK v2 renamed `FastMCP` to `MCPServer` and removed the old import path. Here is the raw stdio exchange with this server, captured and lightly trimmed. Note that there is no handshake before the first call:
 
 ```json
 {"jsonrpc": "2.0", "id": 1, "method": "tools/list",

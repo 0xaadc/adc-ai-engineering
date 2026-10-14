@@ -8,9 +8,9 @@
 
 ## Why this exists
 
-A 70B-parameter model stored at 16 bits per weight is 140 GB. To produce one token, the GPU must stream all of those weights from memory through its math units. GPU arithmetic is extremely fast, but memory is comparatively slow, so for one user generating one token at a time the chip mostly waits on memory. Done naively, serving is slow and wasteful: the prompt gets recomputed at every step, GPUs sit half-idle between requests, and memory fragments.
+A 70B-parameter model at 16 bits per weight is 140 GB. To produce one token, the GPU must stream all of those weights from memory through its math units. Arithmetic is extremely fast and memory comparatively slow, so for one user generating one token at a time, the chip mostly waits. Done naively, serving recomputes the prompt at every step, leaves GPUs half-idle between requests, and fragments memory.
 
-Inference engineering is the set of tricks that fix this. You don't run those tricks yourself when you call an API, but they explain every number on your bill and every pause in your UI: why output costs more than input, why long prompts slow the first token, and why a cached prefix is cheap.
+Inference engineering is the set of tricks that fix this. You don't run them when you call an API, but they explain your bill and your UI's pauses: why output costs more than input, why long prompts delay the first token, and why a cached prefix is cheap.
 
 ## How it works (under the hood)
 
@@ -96,7 +96,7 @@ Same outputs, 17× fewer projections, and the gap grows with the square of the l
 
 - **TTFT (time to first token):** request to first output token, covering network, queueing and prefill. It grows with the uncached prompt length.
 - **TPOT (time per output token):** the average gap after the first token, (end-to-end latency − TTFT) / (output tokens − 1).
-- **ITL (inter-token latency):** each individual gap. For one request, mean ITL equals TPOT. Across many requests, benchmarks may average per request or per token, so check the definition before comparing numbers.
+- **ITL (inter-token latency):** each individual gap. For one request, mean ITL equals TPOT. Across requests, benchmarks average differently, so check definitions before comparing.
 - **End-to-end latency** ≈ TTFT + TPOT × (output tokens − 1).
 - **Throughput:** tokens per second across all users of a server. **Goodput** counts only requests that meet their latency targets.
 
@@ -243,7 +243,6 @@ Read the shape, not the exact numbers. The classifier pays for input, while the 
 - **Silent cache misses.** A timestamp or a reordered tool list early in the prompt means every request pays full price, and nothing errors.
 - **TTFT spikes under load.** Queueing at the provider adds latency that you can't fix with prompt changes, so budget for p95 and p99, not the average.
 - **Truncation.** Output stops at `max_tokens` (`stop_reason: "max_tokens"`) mid-answer. Long outputs also need streaming to avoid HTTP timeouts.
-- **Unmeasured quantization loss** on self-hosted models, which degrades quality on your specific task.
 - **Non-reproducibility** from batching, even with greedy decoding.
 
 ## Comparison

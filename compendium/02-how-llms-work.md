@@ -4,7 +4,7 @@
 
 ## Where this fits
 
-This section starts the model thread. In 2017 the transformer made it possible to train on text in parallel at massive scale. In 2020 GPT-3 (175B parameters) showed that a model trained only to predict the next token could do new tasks from a few examples in the prompt. On November 30, 2022, ChatGPT added human-feedback training and a chat interface, and LLMs went mainstream. [§01](01-first-principles.md) stated the principles; this section shows the mechanism behind P1, P4 and P5.
+This section starts the model thread. In 2017 the transformer made it possible to train on text in parallel at massive scale. In 2020 GPT-3 (175B parameters) showed that a model trained only to predict the next token could do new tasks from a few examples in the prompt. On November 30, 2022, ChatGPT paired InstructGPT's human-feedback training with a chat interface, and LLMs went mainstream. [§01](01-first-principles.md) stated the principles; this section shows the mechanism behind P1, P4 and P5.
 
 ## Why this exists
 
