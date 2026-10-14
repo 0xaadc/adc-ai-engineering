@@ -81,7 +81,7 @@ Each tradeoff below gives the conditions for each side, then the principle that 
 
 - **Choose prompting when** the model already has the knowledge and the task is about instructions, examples and format. It is the cheapest option to try and the fastest to change, and it improves with every model release.
 - **Choose RAG when** answers depend on facts that are private, changing, per-user or must be cited. Supplied knowledge is fresh and permission-filtered.
-- **Choose fine-tuning when** you need behavior that prompting can't produce reliably at your volume: a strict style or format, a narrow skill, or a small model distilled to match a large one on one task. Don't fine-tune facts in: they blur, can't be cited, and can't be revoked per user.
+- **Choose fine-tuning when** you need behavior that prompting can't produce reliably at your volume: a strict style or format, a narrow skill, or a small model distilled to match a large one on one task. Don't fine-tune facts in: they blur, can't be cited, and can't be revoked per user. As of Oct 2026 this usually means an open-weight model, self-hosted or on a specialized provider: Anthropic's API has no self-serve fine-tuning, and OpenAI is winding its own down ([§29](29-adapting-models.md), [§31](31-open-weights-self-hosting.md)).
 - **Principle:** P5, ground for facts and fine-tune for behavior. Try prompting, then retrieval, then fine-tuning, and combine them freely. Mechanism: [§05](05-api-and-prompting.md), [§09](09-rag.md), [§29](29-adapting-models.md).
 
 ### 2. Long context vs RAG
@@ -195,7 +195,7 @@ Each tradeoff below gives the conditions for each side, then the principle that 
 ### 20. Hosted API vs self-hosting
 
 - **Choose a hosted API when** you want frontier quality, your traffic varies, and you don't want to run GPUs. Providers batch many customers onto shared hardware, which is hard to match at small scale.
-- **Choose self-hosted open weights when** data can't leave your environment, traffic is high and steady enough to keep GPUs busy, you need custom constrained decoding or fine-tunes the APIs don't offer, or you need a pinned model that never changes under you.
+- **Choose self-hosted open weights when** data can't leave your environment, traffic is high and steady enough to keep GPUs busy, you need custom constrained decoding or fine-tunes (which most frontier APIs don't offer or are closing, [§29](29-adapting-models.md)), or you need a pinned model that never changes under you.
 - **Principle:** P10. The economics turn on utilization, because an idle GPU costs as much as a busy one. Count operations and the eval work that quantization needs, and compare against the *same* model hosted, not a different frontier model. Middle paths exist: a hosted open-weight API (cheap tokens, an exit to self-hosting later) or a hosted model offered inside your own cloud account. Mechanism: [§31](31-open-weights-self-hosting.md), [§03](03-inference.md).
 
 ### 21. Cascaded voice vs speech-to-speech

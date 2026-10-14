@@ -26,7 +26,7 @@ Every Anthropic `usage` object has four meters: uncached `input_tokens`, `cache_
 - **Cost per completed task** is what you actually buy. A cheaper model that needs more turns, retries or a human cleanup is not cheaper. Anthropic's guide says to compare models "on cost per completed task, not per token."
 - **Cost per user per month** is what the business sees. Five agent tasks a day at $0.42 each comes to about $46 per user over 22 working days. Against a $20 subscription that is a negative gross margin, whatever the per-token price.
 
-Agents multiply tokens. Anthropic measured agents at about 4× the tokens of chat and multi-agent systems at about 15× ([§13](13-multi-agent.md)). Those are averages; a deep loop sits far above them because input grows with the square of the turn count. A cost model makes this concrete:
+Agents multiply tokens. In Anthropic's data (Jun 2025), agents used about 4× the tokens of chat and multi-agent systems about 15× ([§13](13-multi-agent.md)). Those are averages; a deep loop sits far above them because input grows with the square of the turn count. A cost model makes this concrete:
 
 ```python
 # USD per million tokens, Claude API list prices as of Oct 2026 (check the pricing page).
