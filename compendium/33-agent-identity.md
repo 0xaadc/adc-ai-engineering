@@ -182,7 +182,7 @@ def run_tool(broker, user, tool_use: dict, approve, call_api, audit: list) -> st
 Hosted runtimes now do this for you. In **Claude Managed Agents** **(Preview)**, vault credentials never enter the sandbox: MCP calls pass through a proxy that adds the OAuth token, and environment-variable secrets appear in the sandbox as opaque placeholders replaced at egress, only on requests to allowed hosts.
 
 **Workload identity** removes even the refresh token. The platform a workload runs on (Kubernetes, a cloud VM, a CI runner) issues it a short-lived signed identity token, such as an OIDC JWT or a SPIFFE document (SPIFFE is a standard for workload IDs of the form `spiffe://trust-domain/path`), which it exchanges for a short-lived access token. No long-lived secret is stored anywhere.
-- **OpenAI's workload identity federation** maps a trusted provider's token claims to a service account. Sources include Kubernetes, AWS, Azure, Google Cloud, GitHub Actions and SPIFFE, with X.509 certificates in beta. No refresh token is issued: "To renew, repeat the exchange."
+- **OpenAI's workload identity federation** maps a trusted provider's token claims to a service account. Sources include Kubernetes, AWS, Azure, Google Cloud, GitHub Actions and SPIFFE, plus X.509 client certificates. No refresh token is issued: "To renew, repeat the exchange."
 - **Anthropic's Workload Identity Federation** **(GA)** uses service accounts and federation rules. Its identity-backed API keys stop working when their user or service account is removed.
 - **Cloud IAM** does the same within each cloud: AWS IAM roles, Google Cloud workload identity federation, Azure managed identities.
 
@@ -190,7 +190,7 @@ Hosted runtimes now do this for you. In **Claude Managed Agents** **(Preview)**,
 
 Authorize in code at the tool layer, as the broker does, and again at the resource server, which checks the token *and* applies its own policy, such as row-level security. Two kinds of "step-up" are easy to confuse. **Step-up authorization** gets *more scope* from the AS, as with MCP's `insufficient_scope` challenge. **Step-up approval** has a human confirm *one specific action*, like the broker's `STEP_UP` set or `always_ask` tools ([§20](20-agent-runtime.md)).
 
-The WIMSE draft says confirmations in the agent's own UI "do not by themselves constitute authorization". It suggests binding them to an AS event, for example with OpenID **CIBA** (Client-Initiated Backchannel Authentication), which pushes an approval request to the user's phone. Short-lived tokens also limit **authorization drift**, OWASP's time-of-check to time-of-use case: a user's spending limit is cut mid-workflow while the agent carries on with its original token.
+The WIMSE draft says confirmations in the agent's own UI "do not by themselves constitute authorization". It requires binding them to a verifiable grant from the AS, for example a step-up via OpenID **CIBA** (Client-Initiated Backchannel Authentication), which pushes an approval request to the user's phone. Short-lived tokens also limit **authorization drift**, OWASP's time-of-check to time-of-use case: a user's spending limit is cut mid-workflow while the agent carries on with its original token.
 
 ### 7. Audit: who did what, on whose behalf
 
@@ -208,7 +208,7 @@ A2A states that "identity information is handled at the protocol layer, not with
 
 - **IETF WIMSE** (Workload Identity in Multi System Environments) working group: *AI Identity Management System* (`draft-ietf-wimse-aims-00`, Sep 15, 2026), by authors from Defakto, AWS, Zscaler, Ping Identity, OpenAI and Okta, replacing `draft-klrc-aiagent-auth`. Its thesis is "agents are workloads": use SPIFFE identifiers, OAuth, transaction tokens and CIBA, and define no new protocol. It is an informational working-group draft.
 - **IETF OAuth working group:** *Identity Assertion JWT Authorization Grant* (ID-JAG, rev 04), the basis of MCP's Enterprise-Managed Authorization; *Identity and Authorization Chaining Across Domains* (rev 17, in the RFC Editor queue); *Transaction Tokens* (rev 11); and OAuth 2.1 itself (rev 16).
-- **Individual drafts**, such as *On-Behalf-Of User Authorization for AI Agents* (rev 02, Feb 2026), are proposals, not adopted work.
+- **Individual drafts**, such as *On-Behalf-Of User Authorization for AI Agents* (rev 02, Aug 2025, now expired), are proposals, not adopted work.
 - **OpenID Foundation:** *Identity Management for Agentic AI* (Oct 7, 2025) finds existing standards cover agents inside one organization or on a user's own data, and flags recursive delegation, consent fatigue and fragmented agent identities as open gaps.
 
 ### 10. Enterprise rollout
@@ -294,7 +294,7 @@ The JWS over the canonicalized card proves it came from the key holder and wasn'
 
 **Q: Why isn't a user's click on "Approve" in the agent's UI the same as authorization?**
 
-The click happens in software the agent controls and leaves nothing a resource server can verify; a hijacked or buggy client could fake it. Authorization means the authorization server issues a token or step-up grant that the resource server checks, and the WIMSE draft recommends binding approvals to such an event, for example via CIBA. Keep UI approvals as a usability layer on top of real scopes.
+The click happens in software the agent controls and leaves nothing a resource server can verify; a hijacked or buggy client could fake it. Authorization means the authorization server issues a token or step-up grant that the resource server checks, and the WIMSE draft requires binding approvals to such an event, for example via CIBA. Keep UI approvals as a usability layer on top of real scopes.
 
 ## Takeaways
 

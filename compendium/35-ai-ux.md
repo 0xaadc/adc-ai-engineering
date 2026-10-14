@@ -184,7 +184,7 @@ As of Oct 2026, OpenAI is retiring Agent Builder (shutdown scheduled for Nov 30,
 
 **3. Sandboxed apps.** The server ships a whole HTML application, and the host isolates it. **MCP Apps** launched on Jan 26, 2026 as the *first official MCP extension* (`modelcontextprotocol/ext-apps`). It was proposed in Nov 2025, building on the MCP-UI project and OpenAI's Apps SDK, and was developed with both. As an extension it sits alongside the core spec (now 2026-07-28), not inside it. It works like this:
 
-- A tool's description includes `_meta.ui.resourceUri`, which points at a `ui://` resource.
+- A tool's definition includes `_meta.ui.resourceUri`, which points at a `ui://` resource.
 - The host fetches the HTML and renders it in a **sandboxed iframe** that can't touch the parent page's DOM, cookies or storage. The resource's `_meta.ui.csp` controls which external origins the app may load from.
 - The app talks to the host over JSON-RPC carried by `postMessage` (`ui/initialize`, plus regular `tools/call`). Its actions therefore go through the host's consent path like any tool call.
 
@@ -280,7 +280,7 @@ Fluent first-person text triggers social responses: people attribute understandi
 
 Design against it:
 
-- **Disclose that it is an AI.** This is required in the EU (Art. 50(1)) and, for companion chatbots, in California (SB 243, **⚠ verify**).
+- **Disclose that it is an AI.** This is required in the EU (Art. 50(1)) and, for companion chatbots, in California (SB 243, signed Oct 2025).
 - **Avoid fake human cues.** Human names and photos for bots, or typing delays added to seem human, push users the wrong way.
 - **Don't let the assistant claim feelings or memories it doesn't have.** Show what it actually remembers ([§17](17-memory.md)).
 - **Make friction proportional to stakes.** A one-click accept is fine for an autocomplete and wrong for a payment.
@@ -394,4 +394,5 @@ Human cues (names, faces, emotional language, simulated typing) trigger social t
 - Google PAIR, People + AI Guidebook: https://pair.withgoogle.com/guidebook/
 - NIST AI 600-1, Generative AI Profile ("Human-AI Configuration"): https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf
 - EU AI Act, Article 50 (transparency) and Article 14 (human oversight), AI Act Explorer (secondary, consolidated text): https://artificialintelligenceact.eu/article/50/
+- Office of the Governor of California, bills protecting children online, incl. SB 243 companion chatbots (Oct 13, 2025): https://www.gov.ca.gov/2025/10/13/governor-newsom-signs-bills-to-further-strengthen-californias-leadership-in-protecting-children-online/
 - W3C, Web Content Accessibility Guidelines (WCAG) 2.2: https://www.w3.org/TR/WCAG22/

@@ -148,7 +148,7 @@ Each tradeoff below gives the conditions for each side, then the principle that 
 
 - **Choose human approval when** an action is irreversible, external or expensive: payments, deletions, customer emails, production deploys. Show the full arguments, not a summary, and implement the wait as a durable interrupt that saves state and resumes on the answer.
 - **Choose autonomy inside a sandbox when** actions are reversible or contained, the checks are computational, and approvals would come so often that people click yes without reading. One sandbox boundary replaces hundreds of per-action prompts.
-- **Principle:** P8 and P9. Put humans where checking after the fact would be too late, not everywhere. Approval fatigue turns oversight into theater (OWASP lists it as ASI09). Mechanism: [§20](20-agent-runtime.md), [§32](32-security-guardrails.md), [§11](11-agents.md), [§35](35-ai-ux.md).
+- **Principle:** P8 and P9. Put humans where checking after the fact would be too late, not everywhere. Approval fatigue turns oversight into theater; it is the human weakness behind OWASP ASI09, Human-Agent Trust Exploitation. Mechanism: [§20](20-agent-runtime.md), [§32](32-security-guardrails.md), [§11](11-agents.md), [§35](35-ai-ux.md).
 
 ### 13. Skills vs MCP
 
