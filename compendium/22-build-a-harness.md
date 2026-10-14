@@ -8,14 +8,13 @@ This is the capstone of Parts 1–5. By 2026 every part of an agent system had a
 
 ## Why this exists
 
-Every earlier section explained one mechanism with its own snippet: the raw request in [§05](05-api-and-prompting.md), the tool round trip in [§10](10-tool-use.md), the `while` loop in [§11](11-agents.md), compaction in [§16](16-context-engineering.md), hooks in [§19](19-harness-engineering.md), the step journal in [§20](20-agent-runtime.md) and the loop driver in [§21](21-loop-engineering.md). Each snippet worked on its own. A harness is where they meet, and most of the hard problems live at the meeting points:
+Every earlier section explained one mechanism with its own snippet, from the raw request in [§05](05-api-and-prompting.md) to the loop driver in [§21](21-loop-engineering.md). Each snippet worked alone. A harness is where they meet, and the hard problems live at the meeting points:
 
 - **Compaction vs thinking.** Compaction rewrites history, but a thinking block is valid only with the history that produced it.
 - **Replay vs approvals.** The durable log replays recorded results, so a human approval has to be recorded too, or the human gets asked twice.
-- **Back pressure vs the budget.** Back pressure adds error text to tool results, and that text competes for the context budget compaction is protecting.
-- **`end_turn` vs done.** The agent loop ends when the model says `end_turn`, which is only a claim. Something else has to decide whether the task is done.
+- **`end_turn` vs done.** The loop ends when the model says `end_turn`, which is only a claim. Something else has to decide whether the task is done.
 
-You only meet these problems by wiring the parts together. If you come from data engineering, think of writing a 300-line toy dbt that renders the Jinja, builds the DAG, runs the models in order and records what ran. Nobody uses the toy afterwards, but once you've written it you know what each part of the real tool is for, and which part to blame when a run goes wrong.
+You only meet these problems by wiring the parts together. It's like writing a 300-line toy dbt that renders the Jinja, builds the DAG and runs the models in order. Nobody uses the toy afterwards, but you come away knowing what each part of the real tool is for.
 
 Every layer in the program exists because a principle from [§01](01-first-principles.md) requires it:
 
@@ -33,7 +32,7 @@ Every layer in the program exists because a principle from [§01](01-first-princ
 | 10 | Tracing | Spans with timing and token usage | P4, P10 | [§27](27-observability.md) |
 | 11 | Outer loop | A fresh context per iteration and a separate goal check | P2, P3, P8 | [§21](21-loop-engineering.md) |
 
-A hype check: this is not a framework, and it isn't production code. It has about 380 lines of code (about 490 with comments and blank lines), and every line is there for a reason an earlier section gave. Production harnesses such as Claude Code, Codex and LangChain's Deep Agents are much larger, mostly because of the items under "What this toy leaves out" at the end of the next part. Their skeleton is the same.
+A hype check: this is neither a framework nor production code. It is about 380 lines of code (about 490 with comments and blank lines). Production harnesses such as Claude Code, Codex and LangChain's Deep Agents are much larger, mostly because of the items under "What this toy leaves out" below. Their skeleton is the same.
 
 ## How it works (under the hood)
 
@@ -46,7 +45,7 @@ python3 compendium/code/mini_harness.py --fresh   # first run: empty workspace a
 python3 compendium/code/mini_harness.py           # second run: replays from the journal
 ```
 
-The task is tiny on purpose: create `greet.py` that prints exactly `hello, harness`, and make the check pass. The model is a **stub**, a scripted stand-in that returns responses in the exact shape of the Messages API, so the harness runs offline, for free, identically every time. The script makes a deliberate mistake so that every layer has something to do. The first run prints the following. Your millisecond column and workspace path will differ, and in stub mode the token counts are estimates.
+The task is tiny on purpose: create `greet.py` that prints exactly `hello, harness`, and make the check pass. The model is a **stub**, a scripted stand-in that returns responses in the exact shape of the Messages API, so the harness runs offline, free and identically every time. The script makes a deliberate mistake so that every layer has work to do. The first run prints the following (your millisecond column and workspace path will differ, and stub token counts are estimates):
 
 ```text
 == iteration 1/3: fresh context, 0 note(s) on disk ==
@@ -73,27 +72,16 @@ The task is tiny on purpose: create `greet.py` that prints exactly `hello, harne
 
 trace summary
   kind     spans replayed errors  tok in tok out       ms
-  model        7        0      0    4867     293      4.0
-  tool         6        0      1       0       0     64.9
+  model        7        0      0    4867     293      4.5
+  tool         6        0      1       0       0     63.5
   compact      1        0      0       0       0      0.1
-  goal         2        0      1       0       0     37.6
+  goal         2        0      1       0       0     36.4
 
 result: DONE after 2 iteration(s) | steps executed 18, replayed 0 | ~5,160 of 20,000 tokens
 workspace: /tmp/mini_harness/stub
 ```
 
-Read it as a story. In iteration 1, the agent:
-
-1. loads a skill;
-2. writes the wrong string, `Hello, harness!`, and back pressure reports the failure inside the write's own result;
-3. tries to "clean up" with `rm -rf`, which a hook blocks;
-4. saves a note after the context crosses a deliberately tiny threshold and is compacted, and then hits the four-turn cap.
-
-The goal check fails, and the harness writes down why.
-
-Iteration 2 starts from an empty context plus the two notes on disk. The agent fixes the string, gets a passing check, confirms it with `run_check` and claims success. The goal check then runs the file itself and asks a separate judge before it prints DONE.
-
-Each line of the trace is one layer at work, and the rest of this section takes them in order.
+Read it as a story. In iteration 1 the agent loads a skill and writes the wrong string, `Hello, harness!`. Back pressure reports the failure inside the write's own result. The agent tries to "clean up" with `rm -rf`, and a hook blocks it. The context crosses a deliberately tiny threshold and is compacted, the agent saves a note, and it hits the four-turn cap. The goal check fails, and the harness writes down why. Iteration 2 starts from an empty context plus the two notes on disk. The agent fixes the string, confirms it with `run_check` and claims success, and the goal check runs the file itself and asks a separate judge before printing DONE. Each trace line is one layer at work.
 
 ### The shape of the program
 
@@ -160,9 +148,7 @@ class AnthropicModel:
             raise SystemExit(f"Messages API error {e.code}: {e.read().decode()[:500]}")
 ```
 
-`StubModel` is a test double. It looks up its reply by step id (`"i1.t2"` means iteration 1, turn 2). A real model doesn't need one; the stub uses it so that a resumed run lines up with the script (layer 9). It also fills in tool-use ids and estimates `usage` from the size of the request, so the token budget and the trace behave realistically.
-
-`AnthropicModel` is the real thing, with no SDK: one `POST /v1/messages` through `urllib`, with the key read from the environment and the pinned `anthropic-version` header. `ANTHROPIC_BASE_URL` lets you point it at a gateway or a local mock. Swapping backends is one argument in `main()`. The OpenAI Responses API has the same shape under different names. The call arrives as a `function_call` item whose `arguments` is a JSON *string*, and you answer with a `function_call_output` item ([§10](10-tool-use.md)).
+`StubModel` is a test double. It looks up its reply by step id (`"i1.t2"` is iteration 1, turn 2) so that a resumed run lines up with the script (layer 9); a real model needs no such thing. It estimates `usage` from the request size, so the budget and trace behave realistically. `AnthropicModel` is the real thing with no SDK: one `POST /v1/messages` through `urllib`, with the key from the environment and the pinned `anthropic-version` header. `ANTHROPIC_BASE_URL` points it at a gateway or a mock. OpenAI's Responses API has the same shape under other names: a `function_call` item whose `arguments` is a JSON *string*, answered by a `function_call_output` item ([§10](10-tool-use.md)).
 
 ### Layer 2: messages and the stateless call
 
@@ -183,11 +169,11 @@ def total_input(usage: dict) -> int:  # uncached + cache-write + cache-read = tr
     return sum(usage.get(k) or 0 for k in keys)
 ```
 
-The model keeps nothing between calls (P2), so every call carries the system prompt, every tool definition and the whole history. That's why the token count on each model span grows turn by turn (P10, [§11](11-agents.md)). Three choices in this function come straight from earlier sections:
+The model keeps nothing between calls (P2), so every call carries the system prompt, every tool definition and the whole history, and each call's input grows turn by turn (P10, [§11](11-agents.md)). Three choices here come from earlier sections:
 
-- **No sampling knobs.** The body has no `temperature`, `top_p`, `top_k` or forced `tool_choice`. Current Claude models reject non-default sampling values and forced tool choice with a 400 error ([§05](05-api-and-prompting.md), [§10](10-tool-use.md)), so `tool_choice` stays at its default, `auto`.
-- **A stable prefix.** The system prompt is built once per run and never edited. The volatile progress notes go in the first user message, and history is append-only (the loop appends every response block unchanged, thinking included). A byte-stable prefix is what prompt caching rewards ([§16](16-context-engineering.md)), although this toy doesn't set `cache_control`.
-- **True prompt size.** `total_input` adds the three input counters, because `input_tokens` alone counts only the uncached part.
+- **No sampling knobs.** There's no `temperature`, `top_p`, `top_k` or forced `tool_choice`, which current Claude models reject with a 400 ([§05](05-api-and-prompting.md), [§10](10-tool-use.md)).
+- **A stable prefix.** The system prompt is built once and never edited, the volatile notes go in the first user message, and history is append-only, with every response block kept as returned. That's what prompt caching rewards ([§16](16-context-engineering.md)), although this toy doesn't set `cache_control`.
+- **True prompt size.** `total_input` adds all three input counters, because `input_tokens` alone is only the uncached part.
 
 ### Layer 3: tools, the jail and `is_error`
 
@@ -243,11 +229,9 @@ class ToolRegistry:
             return self.result(call, f"{type(e).__name__}: {e}", True)
 ```
 
-The registry enforces the contract from [§10](10-tool-use.md). Every `tool_use` gets exactly one `tool_result` with the same id. A failure comes back as a result with `"is_error": true` and a message saying what went wrong, never as an exception that kills the loop: only the model can change the plan, so the model has to hear about the failure.
+The registry enforces the [§10](10-tool-use.md) contract: every `tool_use` gets exactly one `tool_result` with the same id, and a failure comes back with `"is_error": true` and a message saying what went wrong, never as an exception that kills the loop. Only the model can change the plan, so the model has to hear about the failure. The jail resolves `..`, absolute paths and symlinks before comparing, and it fences off `.harness/`, so the agent can't rewrite its own notes or step log ([§19](19-harness-engineering.md): keep sensors out of the maker's write path).
 
-The jail resolves `..`, absolute paths and symlinks before comparing. It also fences off `.harness/`, where the journal and notes live, so the agent can't rewrite its own memory or step log through `write_file`. That's [§19](19-harness-engineering.md)'s rule of keeping sensors out of the maker's write path.
-
-The three file tools (`read_file`, `write_file`, `run_check`) are registered in `add_file_tools`. `run_check` uses an **allow-list**: it accepts exactly `python3 <file>`, runs it in a child process with a 10-second timeout, and returns the exit code and output. The allow-list is the real control, because you can list what a task needs but you can't list everything dangerous (P9, [§20](20-agent-runtime.md)).
+`add_file_tools` registers `read_file`, `write_file` and `run_check`. `run_check` uses an **allow-list**: it accepts exactly `python3 <file>`, runs it in a child process with a 10-second timeout, and reports the exit code and output. You can list what a task needs, but not everything dangerous, so the allow-list is the real control (P9, [§20](20-agent-runtime.md)).
 
 ### Layer 4: the agent loop
 
@@ -289,12 +273,12 @@ def agent_loop(run: Run, it: int, system: str, messages: list, max_turns=4) -> s
     return resp["stop_reason"]  # end_turn is a claim, not proof (§11); or max_tokens, refusal...
 ```
 
-This is the loop from [§11](11-agents.md) with the rest of the harness plugged in. `ask()` wraps one model call in compaction, the journal and tracing. The `while` runs as long as the latest response asked for tools. Each pass sends every requested call through the hooks and returns all the results in one user turn. Then it checks the stop conditions:
+This is the [§11](11-agents.md) loop with the rest of the harness plugged in. `ask()` wraps one model call in compaction, the journal and tracing. While the latest response asks for tools, each pass sends every call through the hooks, returns all results in one user turn, and checks the stops:
 
-- **`end_turn`.** The model says it's finished. That's a claim, not proof, which is why layer 11 exists.
-- **`max_turns`.** A hard cap on model calls per iteration. In the demo it ends iteration 1, on purpose.
-- **`token_budget`.** A cap on total tokens across the run, summed from `usage`. The counter is rebuilt from journaled usage on replay, so a crash can't reset it ([§20](20-agent-runtime.md)).
-- **Any other `stop_reason`** (`max_tokens`, `refusal`, `pause_turn`) ends the loop without executing anything. A truncated `tool_use` must never run.
+- **`end_turn`**: the model says it's finished, a claim rather than proof, which is why layer 11 exists.
+- **`max_turns`**: a hard cap on calls per iteration. It ends iteration 1 on purpose.
+- **`token_budget`**: a cap on total tokens, summed from `usage` and rebuilt from the journal on replay, so a crash can't reset it ([§20](20-agent-runtime.md)).
+- **Any other `stop_reason`** (`max_tokens`, `refusal`, `pause_turn`) ends the loop with nothing executed. A truncated `tool_use` must never run.
 
 The model chooses each next step (P7), and code owns the caps.
 
@@ -342,14 +326,12 @@ class Hooks:
         return result
 ```
 
-Hooks are the harness's deterministic guardrails. They run on every call, whatever the model intends (P6). The pre-tool hooks can deny a call, and the post-tool hook can add to its result:
+Hooks are deterministic guardrails: they run on every call, whatever the model intends (P6). Pre-tool hooks can deny a call, and a denial comes back as an `is_error` result, so the model sees why and can change its plan. The post-tool hook adds to a result.
 
-- **`deny_outside_workspace`** blocks a path outside the jail before the tool runs. The tool would refuse it anyway (defense in depth), but the hook's message tells the model what to do instead.
-- **`deny_dangerous_commands`** is a regex blocklist, and it caught `rm -rf __pycache__ && python3 greet.py` in the demo. As [§19](19-harness-engineering.md) warns, a blocklist is a speed bump, not containment. `run_check`'s allow-list, and in production a sandbox, do the real work.
-- **`ask_approval`** calls an approval callback before every write. The demo approves automatically and logs it. With `--ask`, you answer at the terminal, and answering anything but `y` turns the write into a `Blocked: the user declined this write.` result. Approvals happen inside the journaled tool step, so a resumed run doesn't ask again. That's [§20](20-agent-runtime.md)'s human approval as a durable step, in miniature.
-- **`back_pressure`** reruns the task's check after every successful `.py` write and appends the verdict to the write's own result. That's how the agent learned in turn 2 that it had printed `'Hello, harness!'`. In [§21](21-loop-engineering.md)'s terms it's a fast computational sensor. Its message says exactly what's wrong and is short enough not to flood the context.
-
-A denied call comes back as an `is_error` result, so the model sees why and can change its plan. In the demo, it saves a note rather than retry.
+- **`deny_outside_workspace`** blocks a path outside the jail. The tool would refuse it anyway (defense in depth), but the hook's message tells the model what to do instead.
+- **`deny_dangerous_commands`** is a regex blocklist, and it caught the `rm -rf` in the demo. As [§19](19-harness-engineering.md) warns, a blocklist is a speed bump, not containment. The allow-list, and in production a sandbox, do the real work.
+- **`ask_approval`** calls an approval callback before every write. The demo approves automatically. With `--ask` you answer at the terminal, and anything but `y` blocks the write. The approval happens inside the journaled tool step, so a resumed run doesn't ask again: [§20](20-agent-runtime.md)'s human approval as a durable step, in miniature.
+- **`back_pressure`** reruns the task's check after every successful `.py` write and appends the verdict to the write's result. That's how the agent learned at turn 2 that it had printed `'Hello, harness!'`. In [§21](21-loop-engineering.md)'s terms it is a fast computational sensor whose message says exactly what's wrong, in one line.
 
 ### Layer 6: context management
 
@@ -393,19 +375,9 @@ class Compactor:
         return compacted
 ```
 
-Before each call, the harness estimates the prompt at about four characters per token. Real counts come from `usage` or `count_tokens` ([§05](05-api-and-prompting.md)). Past the threshold, `compact()` keeps the latest tool round verbatim and replaces everything before it with a summary. The summary holds the task statement, each call made, and the start of each result, errors included, since observed failures are worth keeping ([§16](16-context-engineering.md)).
+Before each call, the harness estimates the prompt at about four characters per token (real counts come from `usage` or `count_tokens`). Past the threshold, `compact()` keeps the latest tool round verbatim and replaces everything before it with a summary: the task, each call made, and the start of each result, errors included, since observed failures are worth keeping ([§16](16-context-engineering.md)). Two simplifications keep the demo deterministic. The threshold is absurdly low, 850 estimated tokens, where real triggers sit in the tens or hundreds of thousands (the API's own threshold compaction defaults to 150K). And the summary is extractive, where production harnesses have the model write it with a prompt tuned for recall.
 
-Two simplifications keep the demo deterministic:
-
-- **The threshold is absurdly low.** It's 850 estimated tokens, so that compaction fires once. Real triggers sit in the tens or hundreds of thousands of tokens; the API's own threshold compaction defaults to 150K ([§16](16-context-engineering.md)).
-- **The summary is extractive.** Production harnesses ask the model to write it, with a summarization prompt tuned for recall.
-
-Two rules matter on current models. The first is **preserved thinking**. On Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1, each thinking block is bound to the exact system prompt, tool set and messages that came before it. A summary you write yourself changes that prefix, so replaying the kept turns' thinking blocks fails the check and the request is rejected. Anthropic's docs give two client-side fixes:
-
-- Strip `thinking` and `redacted_thinking` blocks from the turns you keep, and keep their `text` and `tool_use` blocks. This is what `compact()` does.
-- Use "simple compaction": one summary message plus the next instruction, with nothing earlier replayed. This is the approach the docs recommend.
-
-The second rule is never to compact in the middle of a tool round. `compact()` runs only at the top of a turn, when every `tool_use` already has its `tool_result`.
+Two rules matter on current models. The first is **preserved thinking**: on Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1, each thinking block is bound to the exact system prompt, tools and messages before it. A summary you write yourself changes that prefix, so replaying the kept turns' thinking blocks fails the check and the request is rejected. Anthropic's docs give two client-side fixes. One is to strip `thinking` and `redacted_thinking` from the kept turns while keeping their `text` and `tool_use` blocks, which is what `compact()` does. The other, which they recommend, is "simple compaction": one summary message plus the next instruction, with nothing earlier replayed. The second rule: never compact mid tool round. `compact()` runs only at the top of a turn, when every `tool_use` has its `tool_result`.
 
 ### Layer 7: skills
 
@@ -434,13 +406,13 @@ class SkillLibrary:
         return f"<skill name={name!r}>\n{body}\n</skill>"
 ```
 
-`SkillLibrary` writes two skills into a temporary directory at startup, so the program ships as one file. Each `SKILL.md` has the [§18](18-skills.md) frontmatter (`name`, `description`) followed by a markdown body. Progressive disclosure works like this:
+`SkillLibrary` writes two skills into a temporary directory at startup, so the program ships as one file. Each `SKILL.md` has the [§18](18-skills.md) frontmatter (`name`, `description`) and a markdown body.
 
-- **Level 1.** `index()` reads only the frontmatter, and those lines go into the system prompt. Both skills cost tokens on every call, including `release-notes`, which the demo never uses.
-- **Level 2.** A body enters context only when the model calls `load_skill`, as it did at `i1.t1`. The model did the matching from the descriptions, so triggering is probabilistic (P4). The `enum` in the tool schema, plus the check in `load()`, stop a name like `../../etc` from becoming a path.
-- **Level 3.** Bundled scripts and reference files would be ordinary `read_file` and `run_check` calls on paths the body names.
+- **Level 1.** `index()` reads only the frontmatter into the system prompt. Both skills cost tokens on every call, including `release-notes`, which the demo never uses.
+- **Level 2.** A body enters context only when the model calls `load_skill`, as at `i1.t1`. The model matched on the descriptions, so triggering is probabilistic (P4). The schema's `enum` and the check in `load()` stop a name like `../../etc` from becoming a path.
+- **Level 3.** Bundled scripts and reference files would be ordinary `read_file` and `run_check` calls.
 
-Look at what compaction did to the skill. At `i1.t4` its body was summarized away, and the summary tells the model to reload skills if it needs their full text. That's the restorable compression of [§16](16-context-engineering.md).
+At `i1.t4` compaction summarized the skill body away, and the summary tells the model to reload skills if it needs them: [§16](16-context-engineering.md)'s restorable compression.
 
 ### Layer 8: memory and the progress file
 
@@ -460,12 +432,7 @@ class Memory:
         return f"saved note to {self.path.name}"
 ```
 
-Every iteration starts from an empty context (P2), so anything the next iteration needs must be on disk. Two writers feed `progress.md`:
-
-- the model, writing on the hot path with `save_note` ([§17](17-memory.md));
-- the driver, which appends a line saying why the iteration ended and what the goal check reported.
-
-Iteration 2's header, "2 note(s) on disk", is the point of this layer: the new context knew the string was wrong without ever seeing iteration 1. It's the progress-file pattern of Anthropic's long-running harness and of Huntley's plan file ([§19](19-harness-engineering.md), [§21](21-loop-engineering.md)). The risk is that a wrong note persists as well as a right one (memory poisoning, [§17](17-memory.md)). Here the agent can only append, through `save_note`; it can never edit the file directly.
+Every iteration starts from an empty context (P2), so anything the next one needs must be on disk. The model writes notes on the hot path with `save_note` ([§17](17-memory.md)), and the driver appends why each iteration ended. Iteration 2's header, "2 note(s) on disk", is the point: the new context knew the string was wrong without ever seeing iteration 1. It's the progress-file pattern of Anthropic's long-running harness and of Huntley's plan file ([§19](19-harness-engineering.md), [§21](21-loop-engineering.md)). A wrong note persists as well as a right one (memory poisoning, [§17](17-memory.md)), so the agent can only append, never edit.
 
 ### Layer 9: the durable step log
 
@@ -505,7 +472,7 @@ trace summary
   kind     spans replayed errors  tok in tok out       ms
   model        7        7      0    4867     293      0.1
   tool         6        6      1       0       0      0.0
-  compact      1        0      0       0       0      0.0
+  compact      1        0      0       0       0      0.1
   goal         2        2      1       0       0      0.0
 
 result: DONE after 2 iteration(s) | steps executed 0, replayed 18 | ~5,160 of 20,000 tokens
@@ -535,10 +502,10 @@ result: DONE after 2 iteration(s) | steps executed 12, replayed 6 | ~5,160 of 20
 Three rules from [§20](20-agent-runtime.md) show up in the code:
 
 - **Step ids come from the code path** (`i1.t3`, `i1.t3.toolu_...`), never from a clock, so a replay finds them again.
-- **I/O between steps is itself a step.** Even reading the notes file at the start of an iteration is journaled, so a replay sees what the original run saw.
-- **Execution is at-least-once.** A crash between a tool's side effect and the journal write reruns that step on resume. `write_file` with the same content is idempotent, but a tool that charges a card would need an idempotency key.
+- **I/O between steps is itself a step.** Even the notes read at the start of an iteration is journaled, so a replay sees what the original run saw.
+- **Execution is at-least-once.** A crash between a side effect and its journal write reruns that step. Rewriting the same file is harmless, but a tool that charges a card would need an idempotency key.
 
-Compaction isn't journaled. It's a pure function of journaled results, so a replay recomputes it and gets the same answer. That's [§20](20-agent-runtime.md)'s Managed Agents idea at toy scale: the log is the source of truth, and the context window is a view derived from it. Sampling (P4) doesn't break replay either, because each sample is recorded once and replayed as-is.
+Compaction isn't journaled: it's a pure function of journaled results, so a replay recomputes the same answer. That's [§20](20-agent-runtime.md)'s Managed Agents idea at toy scale: the log is the source of truth, and the context window is a view of it. Sampling (P4) doesn't break replay, because each sample is recorded once.
 
 ### Layer 10: tracing
 
@@ -564,7 +531,7 @@ class Tracer:
             print(f"  {kind:<8}{len(ss):>6}{n[0]:>9}{n[1]:>7}{n[2]:>8}{n[3]:>8}{n[4]:>9.1f}")
 ```
 
-Each step gets one span, recording its kind, duration, tokens, whether it was replayed and whether it failed. The live lines are the trace you read above, and the summary table aggregates them. You can't unit-test a distribution (P4), so traces like these are what you read to find failure patterns, and they become the raw material for evals ([§26](26-evals.md)). Production harnesses export the same fields as OpenTelemetry spans following the GenAI semantic conventions ([§27](27-observability.md)) instead of printing them.
+Each step gets a span with its kind, duration, tokens, and whether it was replayed or failed. The live lines are the trace above, and the summary aggregates them. You can't unit-test a distribution (P4), so traces are what you read to find failure patterns, and they feed evals ([§26](26-evals.md)). Production harnesses export the same fields as OpenTelemetry spans under the GenAI semantic conventions ([§27](27-observability.md)).
 
 ### Layer 11: the outer loop and the goal check
 
@@ -616,14 +583,12 @@ def drive(task: Task, model, ws: Workspace, approver, max_iters=3, crash_after=N
     return ok
 ```
 
-`drive()` is the loop engineering of [§21](21-loop-engineering.md): up to three iterations, each starting from a fresh context built from the task and the notes on disk. A fresh start discards failed attempts and stale tool output, the tokens that rot attention (P3), and the files keep what matters.
+`drive()` is the loop engineering of [§21](21-loop-engineering.md): up to three iterations, each from a fresh context built from the task and the notes on disk. A fresh start discards failed attempts and stale output, the tokens that rot attention (P3). The harness, not the model, decides when to stop, through `goal_check()`, which is separate from the maker in two ways:
 
-The harness, not the model, decides when to stop, through `goal_check()`, which is separate from the maker in two ways:
+- **It gathers its own evidence.** It runs the check itself in a new process instead of trusting the transcript, where a `run_check` output or an `end_turn` message could be wrong or invented.
+- **It asks a separate judge.** Only after the computational check passes does it call a model with a different system prompt, no tools and no history, to review the file. That's [§21](21-loop-engineering.md)'s order: code first wherever code can decide, then a judge (P8). In stub mode the verdict is scripted.
 
-- **It gathers its own evidence.** It runs the check itself, in a new process, instead of trusting the transcript. A `run_check` output or an `end_turn` message in the conversation could be wrong, or invented.
-- **It asks a separate judge.** Only when the computational check passes does it call a model with a different system prompt, no tools and no history, to review the file against the task. That's the order [§21](21-loop-engineering.md) recommends: code first, wherever code can decide, then a judge for what code can't check (P8). In stub mode, the judge's verdict is scripted like everything else.
-
-When the goal check fails, its reason goes into the progress file and the next iteration starts from it. Iteration 1 ended on `max_turns` with a wrong file. The driver didn't care why it stopped, only whether the goal held.
+A failed check's reason goes into the progress file for the next iteration. The driver didn't care why iteration 1 stopped, only whether the goal held.
 
 ### Running it against the real API
 
@@ -632,23 +597,23 @@ export ANTHROPIC_API_KEY=...        # read from the environment, never hardcoded
 python3 compendium/code/mini_harness.py --real --fresh
 ```
 
-The same harness now calls `claude-sonnet-5-5`. The stub's script is ignored and the model decides every step from the messages, so expect a different trace: it may get the string right first time and finish in one iteration. Real responses carry `thinking` blocks, which the loop sends back unchanged and `compact()` strips from the turns it keeps. The run makes a handful of calls with prompts of about a thousand tokens each, so it costs cents. The request shape follows the current API reference. The full `--real` run was exercised against a local mock of the Messages API, not the live service **(⚠ verify)**.
+The same harness now calls `claude-sonnet-5-5`, and the model decides every step from the messages, so expect a different trace: it may get the string right first time and finish in one iteration. Real responses carry `thinking` blocks, which the loop sends back unchanged and `compact()` strips from kept turns. A handful of calls with prompts of about a thousand tokens costs cents. The request shape follows the current API reference, but the `--real` run was exercised against a local mock of the Messages API, not the live service **(⚠ verify)**.
 
 ### What this toy leaves out
 
 Roughly in the order you would miss them, a production harness adds:
 
-- **Real sandboxing.** `run_python` is a child process with a timeout, running on your machine with your permissions, and the regex hook doesn't change that. A production harness confines the filesystem and the network together, at the OS, container, gVisor or microVM level, and keeps secrets outside the sandbox ([§20](20-agent-runtime.md)).
+- **Real sandboxing.** `run_python` is a child process with your permissions. A production harness confines filesystem and network together, at the OS, container, gVisor or microVM level, and keeps secrets outside ([§20](20-agent-runtime.md)).
 - **Prompt-injection defenses.** Any file the agent reads can carry instructions (P9). Least privilege and approval gates on consequential tools matter more than any prompt ([§32](32-security-guardrails.md)).
-- **Retries, timeouts and idempotency.** A single 429 or 5xx from the API ends this program. Production code retries transport errors with backoff, and gives side-effecting tools idempotency keys ([§30](30-cost-latency-reliability.md)).
+- **Retries and idempotency.** One 429 or 5xx ends this program. Production code retries with backoff and gives side-effecting tools idempotency keys ([§30](30-cost-latency-reliability.md)).
 - **Prompt caching.** The prefix is already stable. Adding `cache_control` would make the repeated part cheap and fast ([§05](05-api-and-prompting.md), [§30](30-cost-latency-reliability.md)).
-- **Streaming.** Here you wait for whole responses. SSE streaming shows tokens as they are decoded, and the SDKs require it for large `max_tokens` ([§05](05-api-and-prompting.md)).
-- **Parallel tools.** The loop runs calls one after another. Independent reads can run concurrently, with all results still returned in one user turn ([§10](10-tool-use.md)).
-- **Auth and identity.** This program uses one API key from the environment. Real agents act for users with scoped, delegated credentials that never enter the sandbox ([§33](33-agent-identity.md)).
-- **Evals.** The demo proves that one scripted path works, once. It says nothing about how often a real model succeeds (P4). That takes a task set, repeated trials and graders ([§26](26-evals.md)).
-- **Refusals and strict schemas.** A `refusal` stop just ends the loop here, where production code adds fallbacks. `strict: true` on tool schemas guarantees valid arguments ([§06](06-structured-outputs.md), [§10](10-tool-use.md)).
+- **Streaming.** SSE shows tokens as they are decoded, and the SDKs require it for large `max_tokens` ([§05](05-api-and-prompting.md)).
+- **Parallel tools.** Independent reads can run concurrently, with all results still returned in one user turn ([§10](10-tool-use.md)).
+- **Auth and identity.** Real agents act for users with scoped, delegated credentials that never enter the sandbox ([§33](33-agent-identity.md)).
+- **Evals.** The demo proves one scripted path works once, not how often a real model succeeds (P4). That takes a task set, repeated trials and graders ([§26](26-evals.md)).
+- **Refusals and strict schemas.** Production code adds refusal fallbacks and `strict: true` tool schemas ([§06](06-structured-outputs.md), [§10](10-tool-use.md)).
 
-Each of these is a function or a module in a real harness, not a different architecture.
+Each is a function or a module in a real harness, not a different architecture.
 
 ## Comparison
 
@@ -674,11 +639,11 @@ You've built a general harness: a loop, tools, guardrails, memory, durability an
 
 **Q: What breaks if you remove the durable log?**
 
-A crash at turn 30 loses the whole in-memory run. Every model call gets paid for again, and because output is sampled (P4), the rerun takes a different path that may contradict files already written. Side effects repeat too: a second ticket, or a second approval prompt. The spend counter also resets, so a crash-looping agent can blow through its budget. For a run that lasts seconds, skipping the log is a fair tradeoff, because a rerun costs little.
+A crash at turn 30 loses the in-memory run. Every model call is paid for again, and because output is sampled (P4), the rerun takes a different path that may contradict files already written. Side effects and approval prompts repeat, and the spend counter resets, so a crash-looping agent can blow through its budget. For a run that lasts seconds, skipping the log is a fair tradeoff.
 
 **Q: Why does the goal check rerun the check itself and use a separate model call, instead of trusting the agent's `end_turn` and its `run_check` output?**
 
-`end_turn` only means the model stopped asking for tools, and its closing message is a prediction that happens to sound like success (P8). The maker's transcript holds its own reasons for believing the work is right, so a judge that reads that transcript inherits its blind spots. Running the check in a new process gathers independent evidence. A judge with a fresh context, different instructions and no tools sees only the artifact. The price is an extra call per iteration, which is why the cheap computational check runs first.
+`end_turn` only means the model stopped asking for tools, and its closing message is a prediction that sounds like success (P8). The transcript holds the maker's own reasons for believing the work is right, so a judge that reads it inherits its blind spots. Running the check in a new process gathers independent evidence, and a judge with a fresh context and no tools sees only the artifact. The price is an extra call per iteration, so the cheap computational check runs first.
 
 **Q: What would happen if a tool raised an exception instead of returning an `is_error` result?**
 
@@ -690,7 +655,7 @@ Each thinking block is bound to the system prompt, tools and messages that came 
 
 **Q: Why does the system prompt stay identical for the whole run, with the progress notes in the first user message instead?**
 
-The model is stateless (P2), so the prefix is resent on every call, and prompt caching only pays off if that prefix is byte-identical (P10). Volatile content near the front would invalidate everything after it, and on current models editing the system prompt mid-conversation also invalidates stored thinking. Stable content goes first, volatile content last, and history stays append-only. If instructions must change mid-run, append a system message rather than editing the top-level prompt ([§16](16-context-engineering.md)).
+The prefix is resent on every call (P2), and prompt caching only pays off if it is byte-identical (P10). Volatile content near the front invalidates everything after it, and on current models editing the system prompt also invalidates stored thinking. So stable content goes first, volatile content last, and history stays append-only. If instructions must change mid-run, append a system message instead ([§16](16-context-engineering.md)).
 
 **Q: The dangerous-command hook and `run_check`'s allow-list both stop `rm -rf`. Why keep both, and which one is the real control?**
 
@@ -698,22 +663,22 @@ The allow-list is the control. It permits exactly `python3 <file>`, so anything 
 
 **Q: Why does iteration 2 start from an empty context instead of continuing iteration 1's conversation?**
 
-Iteration 1's history holds a failed attempt, a denied command and a compacted summary, and those tokens dilute attention and can mislead (P3). The model is stateless anyway (P2), so a fresh context that reads two notes from disk is the same agent without that baggage. The cost is that anything not written down is lost, which is why the notes and the driver's failure record must carry what matters. For judgment-heavy work, where the session's own reasoning is the valuable state, one longer session with compaction can be better.
+Iteration 1's history holds a failed attempt, a denied command and a summary, tokens that dilute attention and can mislead (P3). The model is stateless anyway (P2), so a fresh context that reads two notes from disk is the same agent without that baggage. The cost is that anything not written down is lost. For judgment-heavy work, where the session's own reasoning is the valuable state, one longer session with compaction can be better.
 
 **Q: Stub vs real model: what does the stub prove, and what can't it tell you?**
 
-The stub proves the harness mechanics: the request shape, the tool round trip, hooks, compaction, replay and stop rules all behave correctly on a known path, deterministically and for free. It can't tell you whether a real model loads the right skill, recovers from back pressure or finishes within budget. Those behaviors are probabilistic (P4), and you measure them with evals over many real runs ([§26](26-evals.md)). Use stubs for harness tests in CI, and evals for agent quality.
+The stub proves the mechanics: the request shape, tool round trip, hooks, compaction, replay and stop rules all behave correctly on a known path, deterministically and for free. It can't tell you whether a real model loads the right skill, recovers from back pressure or finishes within budget. Those behaviors are probabilistic (P4) and need evals over many real runs ([§26](26-evals.md)). Use stubs for harness tests in CI and evals for agent quality.
 
 ## Takeaways
 
-- A harness is a stack of small, separable layers around one stateless call, and about 380 lines of code are enough to show all of them.
+- A harness is a stack of small layers around one stateless call; about 380 lines of code show them all.
 - The model only returns typed blocks. Every action, check and limit lives in harness code (P6).
 - Failures, denials and check verdicts go back to the model as tool results it can act on, never as crashes.
-- Back pressure, plus a goal check that gathers its own evidence, turns "the model says it's done" into "the check says it's done" (P8).
-- Compaction is a view over history. On Claude 5.5-family models, never replay thinking blocks after rewriting what came before them.
-- Journal every step under an id taken from the code path, so a crash never repeats work already paid for, including approvals and spend.
-- Start each iteration with a fresh context and keep state on disk. The repo remembers what the model forgets (P2, P3).
-- What separates the toy from production is sandboxing, security, retries, caching, streaming, parallelism, identity and evals, not a different architecture.
+- Back pressure plus a goal check that gathers its own evidence turns "the model says it's done" into "the check says so" (P8).
+- On Claude 5.5-family models, never replay thinking blocks after rewriting what came before them.
+- Journal every step under an id from the code path, so a crash never repeats paid-for work, approvals or spend.
+- Fresh context per iteration, state on disk: the repo remembers what the model forgets (P2, P3).
+- The gap to production is sandboxing, security, retries, caching, streaming, parallelism, identity and evals, not a different architecture.
 
 ## Sources
 

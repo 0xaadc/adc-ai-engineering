@@ -176,9 +176,9 @@ Availability, Oct 2026: OpenAI's RFT supported only `o4-mini`, which its depreca
 An **RL environment** packages a task, the tools and sandbox to attempt it, and a *verifier* that decides whether the attempt succeeded, usually behind an interface like `reset()` and `step(action)`. That is the anatomy of an agent eval ([§26](26-evals.md)). The difference is where the score goes:
 
 ```text
-           ┌───────────── task + sandbox + tools ─────────────┐
+           ┌───────────── task + sandbox + tools ──────────────┐
  model ───►│ think → tool call → observation → … → final state │──► verifier ──► score ─┬─► as a metric: eval report
-   ▲       └──────────────────────────────────────────────────┘                        │
+   ▲       └───────────────────────────────────────────────────┘                        │
    └──────────── as a reward: raise the probability of high-scoring trajectories ◄──────┘
 ```
 

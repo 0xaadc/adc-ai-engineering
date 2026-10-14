@@ -22,7 +22,7 @@ What you need instead: an identity for the agent, a record of whose behalf it ac
 
 A **principal** is anything that can be authenticated and granted permissions: a user, a service account, a workload. An agent can stand in three relations to principals:
 
-- **Delegated authority (on behalf of a user).** The agent has its own client identity, and the user grants it a subset of their permissions. Its effective rights are the *intersection* of what the user may do and what the user granted (the scopes). This is the right model whenever the agent touches a user's data. The IETF WIMSE draft on agent identity (Sep 2026) puts both names in the access token: the agent in `client_id` and the user in `sub`.
+- **Delegated authority (on behalf of a user).** The agent has its own client identity, and the user grants it a subset of their permissions. Its effective rights are the *intersection* of what the user may do and what the user granted (the scopes). This is the right model whenever the agent touches a user's data. The IETF WIMSE draft on agent identity (Sep 2026) puts both names in the access token, typically a **JWT** (JSON Web Token, a signed set of key-value **claims**): the agent in `client_id` and the user in `sub`.
 - **Autonomous authority (its own principal).** The agent runs as a service account or workload identity, with permissions granted directly. This fits scheduled or event-driven work with no user in the loop, such as a nightly triage agent. Keep those permissions narrow, because no user's rights limit them.
 - **Impersonation** (the anti-pattern). The agent presents the user's own credentials, so downstream systems see only the user.
 
@@ -54,7 +54,7 @@ In the **authorization code flow with PKCE**, used when a user is at a browser:
 3. The AS redirects back with a short-lived **authorization code**.
 4. The client redeems the code *plus the verifier*, and the AS checks the verifier's hash against the challenge.
 
-**PKCE** (Proof Key for Code Exchange, RFC 7636) means an intercepted code is useless without the verifier, which never left the client. **OAuth 2.1**, still an IETF draft (revision 16, Sep 2026), consolidates a decade of OAuth 2.0 practice. PKCE is required and its `plain` method removed, the implicit and password grants are gone, redirect URIs must match exactly, bearer tokens may not appear in query strings, and public clients' refresh tokens must be sender-constrained or one-time use. An agent acting as itself uses the **client credentials grant** instead, with no user and no browser.
+**PKCE** (Proof Key for Code Exchange, RFC 7636) means an intercepted code is useless without the verifier, which never left the client. **OAuth 2.1**, still an IETF draft (revision 16, Sep 2026), consolidates a decade of OAuth 2.0 practice. PKCE is required and its `plain` method removed, the implicit and password grants are gone, redirect URIs must match exactly, bearer tokens may not appear in query strings, and public clients' refresh tokens must be sender-constrained or one-time use. An agent acting as itself uses the **client credentials grant** instead, with no user and no browser. **OpenID Connect** (OIDC) is the identity layer on top of OAuth: it adds a signed **ID token** stating who the user is, which enterprise flows reuse as an "identity assertion".
 
 ```python
 import base64, hashlib, secrets
@@ -94,22 +94,22 @@ print(authorize_url)
 
 ### 3. MCP authorization in the 2026-07-28 spec
 
-MCP authorization is optional and covers HTTP transports. A stdio server "SHOULD NOT follow this specification" and takes credentials from its environment. Where it applies **(GA)**, the MCP server is an OAuth 2.1 resource server and the MCP client an OAuth client, with a separate or co-hosted authorization server.
+MCP authorization is optional and covers HTTP transports. Implementations on stdio "SHOULD NOT follow this specification" and take credentials from the environment instead. Where it applies **(GA)**, the MCP server is an OAuth 2.1 resource server and the MCP client an OAuth client, with a separate or co-hosted authorization server.
 
 **Discovery.** Servers MUST publish **Protected Resource Metadata** (RFC 9728), a JSON document at a well-known URL listing their `authorization_servers`. Clients then fetch the AS's metadata (RFC 8414 or OpenID Connect Discovery) and MUST check that its `issuer` matches.
 
 ```text
-MCP client                     MCP server (resource server)          Authorization server
-  │ POST /mcp (no token) ──────────►│
-  │◄─ 401 WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource",
-  │                                scope="files:read"
-  │ GET protected resource metadata ►│ → {"authorization_servers": ["https://auth…"]}
-  │ GET /.well-known/oauth-authorization-server ─────────────────────────►│ check issuer, PKCE
-  │ browser → /authorize ?client_id=<CIMD URL> &code_challenge=… &resource=<server URI> ►│
-  │◄──────────────────────────────── code + iss  (iss must equal the recorded issuer) ───│
-  │ POST /token  code + code_verifier + resource ────────────────────────►│
-  │◄──────────────────────────────── access_token (aud = this MCP server) ───────────────│
-  │ POST /mcp  Authorization: Bearer … ►│ validate audience + scope → 200, or 403 insufficient_scope
+ 1  client ──► MCP   POST /mcp (no token)
+    client ◄── MCP   401  WWW-Authenticate: Bearer resource_metadata="…", scope="files:read"
+ 2  client ──► MCP   GET …/.well-known/oauth-protected-resource
+    client ◄── MCP   {"authorization_servers": ["https://auth.example.com"]}
+ 3  client ──► AS    GET /.well-known/oauth-authorization-server
+    client ◄── AS    issuer, endpoints, code_challenge_methods_supported   (check issuer, S256)
+ 4  browser ─► AS    /authorize?client_id=<CIMD URL>&code_challenge=…&resource=<MCP URI>
+    client ◄── AS    redirect with code, state, iss          (check state; iss == recorded issuer)
+ 5  client ──► AS    POST /token  code + code_verifier + resource
+    client ◄── AS    access_token, short-lived, aud = this MCP server
+ 6  client ──► MCP   POST /mcp  Authorization: Bearer …   → 200, or 403 insufficient_scope
 ```
 
 **Client registration.** An AS must know a client before issuing tokens. In order of preference:
@@ -181,7 +181,7 @@ def run_tool(broker, user, tool_use: dict, approve, call_api, audit: list) -> st
 
 Hosted runtimes now do this for you. In **Claude Managed Agents** **(Preview)**, vault credentials never enter the sandbox: MCP calls pass through a proxy that adds the OAuth token, and environment-variable secrets appear in the sandbox as opaque placeholders replaced at egress, only on requests to allowed hosts.
 
-**Workload identity** removes even the refresh token. The platform a workload runs on (Kubernetes, a cloud VM, a CI runner) issues it a short-lived signed identity token, such as an OIDC JWT or a SPIFFE identity document, which it exchanges for a short-lived access token. No long-lived secret is stored anywhere.
+**Workload identity** removes even the refresh token. The platform a workload runs on (Kubernetes, a cloud VM, a CI runner) issues it a short-lived signed identity token, such as an OIDC JWT or a SPIFFE document (SPIFFE is a standard for workload IDs of the form `spiffe://trust-domain/path`), which it exchanges for a short-lived access token. No long-lived secret is stored anywhere.
 - **OpenAI's workload identity federation** maps a trusted provider's token claims to a service account. Sources include Kubernetes, AWS, Azure, Google Cloud, GitHub Actions and SPIFFE, with X.509 certificates in beta. No refresh token is issued: "To renew, repeat the exchange."
 - **Anthropic's Workload Identity Federation** **(GA)** uses service accounts and federation rules. Its identity-backed API keys stop working when their user or service account is removed.
 - **Cloud IAM** does the same within each cloud: AWS IAM roles, Google Cloud workload identity federation, Azure managed identities.
