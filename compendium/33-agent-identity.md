@@ -285,31 +285,31 @@ Identity, scopes and audit logs answer what you owe your users: their data is us
 
 **Q: Why shouldn't an internal agent run as one shared service account, even if every user is allowed to use the agent?**
 
-The account's permissions apply no matter who is asking, so any user, or any document the agent reads, can steer it into actions the requesting user couldn't take. That is the confused deputy (P9). Logs show only the service account, which leaves an attribution gap. Delegated tokens carrying the user in `sub` keep the agent inside the user's rights and let row-level security and audit work. A shared principal is fine only for system jobs no user drives.
+The account's permissions apply whoever is asking, so any user, or any document the agent reads, can steer it into actions the requester couldn't take: a confused deputy (P9). Logs show only the service account, an attribution gap. Delegated tokens with the user in `sub` keep the agent inside that user's rights, so row-level security and audit still work. A shared principal suits only system jobs that no user drives.
 
 **Q: What would happen if an MCP server forwarded the client's token straight to the GitHub API?**
 
-That is token passthrough, which MCP forbids. GitHub would see a token not issued for the MCP server, so audience-dependent controls are bypassed. Logs would attribute requests to the wrong party, and a stolen token could use the server as a proxy. The server should accept only tokens issued for itself and call GitHub as its own OAuth client with a separately issued token.
+That is token passthrough, which MCP forbids. GitHub would receive a token not issued for that hop, so audience-dependent controls are bypassed, logs blame the wrong party, and a stolen token can use the server as a proxy. The server should accept only tokens issued to itself and call GitHub as its own OAuth client with a separate token.
 
 **Q: How does PKCE protect the authorization code flow, and what would an attacker with an intercepted code lack?**
 
-The client sends only a SHA-256 challenge at the start and keeps the verifier. To redeem the code, it must present the verifier, which the authorization server hashes and compares. An attacker who intercepts the redirect has the code but not the verifier, so the token request fails. That is why OAuth 2.1 requires PKCE, and why MCP clients must refuse servers that don't advertise S256 support.
+The client sends only the SHA-256 challenge up front and keeps the verifier. Redeeming the code requires the verifier, which the authorization server hashes and compares. An attacker who intercepts the redirect has the code but not the verifier, so the token request fails. That is why OAuth 2.1 requires PKCE and MCP clients refuse servers without S256 support.
 
 **Q: Delegated vs autonomous authority: when should an agent be its own principal?**
 
-Delegated authority suits any action on a user's data. The rights are the intersection of the user's permissions and the granted scopes, and audits name both parties. Autonomous authority suits work with no user in the loop, such as nightly triage or a monitoring agent, and the agent's grants are then the only limit, so they must be narrow. A mixed setup is common: a scheduled agent acts as itself for system tasks and with a delegated token when touching a person's data.
+Use delegated authority for any action on a user's data: rights are the user's permissions intersected with the granted scopes, and audits name both parties. Use autonomous authority for work with no user in the loop, such as nightly triage, where the agent's own grants are the only limit and must be narrow. Many agents mix the two, acting as themselves for system tasks and with a delegated token when they touch a person's data.
 
 **Q: Why must credentials never enter the model's context, even for a model you trust?**
 
-Trust in the model doesn't extend to everything the model reads. Any injected instruction can make it repeat a secret into a tool argument, a URL or its output (P9), and context also lands in logs and traces. Keeping credentials in a harness-side broker or an egress vault means even a fully hijacked agent can use only the narrow, short-lived token for the call it is making, and can never steal it.
+Trusting the model doesn't mean trusting everything it reads. An injected instruction can make it copy a secret into a tool argument, a URL or its reply (P9), and context also lands in logs and traces. With a harness-side broker or an egress vault, a hijacked agent can only request tool calls. The harness executes them with a short-lived, narrow token the model never sees, so there is nothing to steal.
 
 **Q: What does a valid Agent Card signature prove, and what doesn't it?**
 
-The JWS over the canonicalized card proves the card came from the key holder and wasn't modified, so a forged "Admin Helper" card fails verification. It doesn't prove that the publisher is trustworthy, that the agent behaves as its skills claim, or that its responses are safe to act on. You still need an allow-list of publishers, per-request authentication and authorization, and treating the remote agent's output as untrusted content ([§32](32-security-guardrails.md)).
+The JWS over the canonicalized card proves it came from the key holder and wasn't altered, so a forged "Admin Helper" card fails. It doesn't prove the publisher is trustworthy, that the agent behaves as its skills claim, or that its output is safe to act on. You still need a publisher allow-list, per-request authentication and authorization, and treatment of remote output as untrusted ([§32](32-security-guardrails.md)).
 
 **Q: Why isn't a user's click on "Approve" in the agent's UI the same as authorization?**
 
-The click happens in software the agent controls and leaves nothing a resource server can verify. A hijacked or buggy client could fake it, and downstream APIs never see it. Authorization means the authorization server issues a token, or a step-up grant, that the resource server checks. The WIMSE draft recommends binding approvals to such an event, for example via CIBA. Keep UI approvals as a usability layer on top of real scopes.
+The click happens in software the agent controls and leaves nothing a resource server can verify; a hijacked or buggy client could fake it. Authorization means the authorization server issues a token or step-up grant that the resource server checks, and the WIMSE draft recommends binding approvals to such an event, for example via CIBA. Keep UI approvals as a usability layer on top of real scopes.
 
 ## Takeaways
 

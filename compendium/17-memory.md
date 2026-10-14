@@ -338,5 +338,5 @@ Files are readable and editable by humans, versionable with git, and navigable w
 - Letta docs, MemFS: https://docs.letta.com/concepts/memfs
 - AGENTS.md: https://agents.md
 - OpenAI, "Harness engineering: leveraging Codex in an agent-first world" (Feb 11, 2026): https://openai.com/index/harness-engineering/
-- OWASP GenAI Security Project, "OWASP Top 10 for Agentic Applications for 2026" (Dec 2025): https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/
+- OWASP GenAI Security Project, "OWASP Top 10 for Agentic Applications for 2026" (Dec 9, 2025; the downloadable PDF lists ASI01–ASI10): https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/
 - Hong, Troynikov & Huber, "Context Rot" (Chroma, Jul 2025): https://research.trychroma.com/context-rot
