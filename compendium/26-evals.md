@@ -22,7 +22,7 @@ If you've written dbt tests, you know the shape of the answer. You never prove a
 
 ### Vocabulary and anatomy
 
-Anthropic's "Demystifying evals for AI agents" (Jan 9, 2026) defines the terms. A **task** is one input with success criteria, and a **suite** is a set of tasks. A **trial** is one attempt; you run several because outputs vary. A **grader** scores one aspect of a trial. The **transcript** (or trace, or trajectory) records the whole trial. The **outcome** is the environment's final state: an agent may *say* "booked," but the outcome is whether the reservation row exists. The **eval harness** runs, grades and aggregates; it evaluates the model together with its agent harness ([§19](19-harness-engineering.md)).
+Anthropic's "Demystifying evals for AI agents" (Jan 9, 2026) defines the terms. A **task** is one input with success criteria, and a **suite** is a set of tasks. A **trial** is one attempt; you run several because outputs vary. A **grader** scores one aspect of a trial. The **transcript** (or trace, or trajectory) records the whole trial. The **outcome** is the environment's final state: an agent may *say* "booked," but the outcome is whether the reservation row exists. The **eval harness** runs the tasks, grades them and aggregates the scores. Don't confuse it with the **agent harness** of [§19](19-harness-engineering.md): evaluating "an agent" means evaluating the model and its agent harness together.
 
 ```text
 golden set ──► system under test ──► transcripts ──► graders ──► scores ──► aggregate ± CI ──► decision
@@ -55,13 +55,13 @@ This works because an LLM's failure space is unbounded and specific to your prom
 
 **Code-based graders** check what a program can decide: normalized match, regex, schema validation ([§06](06-structured-outputs.md)), unit tests, query results, the environment's end state, or which tools were called with which arguments. They're fast, cheap and reproducible, but rigid: Opus 4.5 first scored 42% on CORE-Bench partly because a grader rejected "96.12" when it expected "96.124991…", and after Anthropic fixed grading bugs and ambiguous tasks and loosened the scaffold, it scored 95%.
 
-**LLM-as-judge** is a second model call that reads the input, the output and a rubric and returns a verdict. Forms include rubric scoring, natural-language assertions ("the reply states the return window"), **pairwise comparison** (is A or B better?) and comparison to a reference answer. The judge is sampled too (P4), and Zheng et al. (2023) documented three biases:
+**LLM-as-judge** is a second model call that reads the input, the output and a rubric and returns a verdict. Forms include rubric scoring, natural-language assertions ("the reply states the return window"), **pairwise comparison** (is A or B better?) and comparison to a reference answer. The judge's output is sampled too (P4), and Zheng et al. (2023) documented three biases:
 
 - **Position bias:** in pairwise comparisons, judges favor one slot. Swap the order and count a win only if it holds both ways.
 - **Verbosity bias:** judges favor longer answers.
 - **Self-enhancement (self-preference) bias:** a model favors outputs resembling its own.
 
-GPT-4 judges agreed with human preferences over 80% of the time in that study, about as often as humans agree with each other: useful, not trustworthy blind. The remedy is **calibration**: treat the judge as a classifier and measure it against human labels. Husain and Shankar suggest at least 50 labeled passes and 50 fails, split into train (examples allowed in the judge prompt), dev (for iterating) and test (used once, at the end). Report the **true positive rate (TPR)**, the share of real failures the judge catches, and the **true negative rate (TNR)**, the share of good outputs it passes. Use one judge per failure mode, give it a way out ("Unknown"), and wrap the judged text in tags as data, since it can contain instructions aimed at the judge (P9). Should a model judge its own output? Self-preference bias argues against it; Husain and Shankar find the same model usually fine for a narrow binary task that agrees with humans. Calibration decides.
+GPT-4 judges agreed with human preferences over 80% of the time in that study, about as often as humans agree with each other: useful, not trustworthy blind. The remedy is **calibration**: treat the judge as a classifier and measure it against human labels. Husain and Shankar suggest at least 50 labeled passes and 50 fails, split into train (examples allowed in the judge prompt), dev (for iterating) and test (used once, at the end). Report the **true positive rate (TPR)**, the share of real failures the judge catches, and the **true negative rate (TNR)**, the share of good outputs it passes. Use one judge per failure mode, give it a way out ("Unknown"), and wrap the judged text in tags as data, since it can contain instructions aimed at the judge (P9). Should a model judge its own output? Self-preference bias argues against it; Husain and Shankar find the same model usually fine for a narrow binary task, as long as it agrees with human labels. Calibration decides.
 
 **Human graders** are the gold standard and the slowest option. Their main jobs are calibrating judges and covering subjective domains. **Inter-annotator agreement**, how often two humans give the same verdict, tells you whether the task itself is well defined. Anthropic's rule of thumb: deterministic graders where possible, LLM graders where necessary, humans judiciously for validation.
 
@@ -77,7 +77,7 @@ Keep test data out of anything you tune. If few-shot examples, judge examples or
 
 ### Snippet: a tiny eval runner
 
-A three-case golden set, a code grader, a stubbed LLM judge whose request body has the real Messages API shape, and pass rates with a **confidence interval**, a range that would contain the true rate 95% of the time across repeated samples.
+The runner below has a three-case golden set, a code grader, and a stubbed LLM judge whose request body has the real Messages API shape. It reports each pass rate with a **confidence interval**: a range that, across repeated samples, would contain the true rate 95% of the time.
 
 ```python
 import math, re
